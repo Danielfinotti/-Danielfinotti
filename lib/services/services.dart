@@ -3,6 +3,30 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
+// ============================================================
+// CONSTANTES GLOBAIS
+// ============================================================
+class AppConfig {
+  // WhatsApp — substitua pelo número real quando informado
+  static const String whatsappNumber = '5561981276447';
+  static String get whatsappUrl => 'https://wa.me/$whatsappNumber';
+
+  // Melhor Envio
+  static const String melhorEnvioToken =
+      'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiYTBmOGI4NDM5ODY3OTU2ZDVmNmM0YWY1MGUyYTNhNTEzZjk1YTcxYjNkY2VmNTVkYThjYjFmYzFlYWMwNjBlZDI1ODIwNzI4MzExODY0NWQiLCJpYXQiOjE3NzI3MzUxMTQuMDE2MjQ0LCJuYmYiOjE3NzI3MzUxMTQuMDE2MjQ2LCJleHAiOjE4MDQyNzExMTQuMDA1MjU2LCJzdWIiOiJhMTNhYWZkNS0wODk4LTQwZmMtODU4MC03MGRmYzQ4YTM3OTciLCJzY29wZXMiOlsiY2FydC1yZWFkIiwiY2FydC13cml0ZSIsImNvbXBhbmllcy1yZWFkIiwiY29tcGFuaWVzLXdyaXRlIiwiY291cG9ucy1yZWFkIiwiY291cG9ucy13cml0ZSIsIm5vdGlmaWNhdGlvbnMtcmVhZCIsIm9yZGVycy1yZWFkIiwicHJvZHVjdHMtcmVhZCIsInByb2R1Y3RzLWRlc3Ryb3kiLCJwcm9kdWN0cy13cml0ZSIsInB1cmNoYXNlcy1yZWFkIiwic2hpcHBpbmctY2FsY3VsYXRlIiwic2hpcHBpbmctY2FuY2VsIiwic2hpcHBpbmctY2hlY2tvdXQiLCJzaGlwcGluZy1jb21wYW5pZXMiLCJzaGlwcGluZy1nZW5lcmF0ZSIsInNoaXBwaW5nLXByZXZpZXciLCJzaGlwcGluZy1wcmludCIsInNoaXBwaW5nLXNoYXJlIiwic2hpcHBpbmctdHJhY2tpbmciLCJlY29tbWVyY2Utc2hpcHBpbmciLCJ0cmFuc2FjdGlvbnMtcmVhZCIsInVzZXJzLXJlYWQiLCJ1c2Vycy13cml0ZSIsIndlYmhvb2tzLXJlYWQiLCJ3ZWJob29rcy13cml0ZSIsIndlYmhvb2tzLWRlbGV0ZSIsInRkZWFsZXItd2ViaG9vayJdfQ.dT_izd-Xa7sej28EvQYtRt36QAftjvmiUPq5VXcCR-TRGSgQKjsP1o4E7D0Mwt8zm2ecuh7nL1ExkpGLvgZoTElcwoAnkQ1T4a0VPfvH9lOE6qHmZMkmwb4mXiCRIPG0zgW2GaH5njdXN2Ha4Z9N--wKUBSK2EK-oJl5WlQbhJDtoeYgRLxDsbEkHs-5pgl3gBXeWazsacSqSkAouz45BjBTN-mbHunVrS-3BbFXvfEo7BtRlf1-MmdMOL2zrd0iaBsR5JekkKqOFtHYUzNk5GbsAwBSsazKcpo9ccIDuETBJWpD06eD34vzEmoctaPsS4sZokKaExf9ui19Z_qXF90yvmis8PsjUJ-ODnJCM2YWonQqNhSjgfw1aCE9MoHN_R2hK2qU60HqcpgfRDT2sH7ZtkR3Yn5U_SI5rzIyoqZEBDOJPF5MmNRX_9SFpkDOIoTtfD69pjJZLq6cQ_V8nU8qv-rShGGqij8DP727ioYLaS5mmpoQk6CrUxPF-xkRpfY-_V_QrngKzjjszRIC1dOs_23U1Q1RoBT04BCKFGnC_4T05PwuZJg3x5SCVqfCOXhY_ncxdUr--zhVqz9abEfGYyv_73uKDu7zgv7Pm7cBvguImLpoyptBj0Iq_jOdWEGyT1m1tMqwPXmqsXRZtdTrQQUa8Tx-bcekQcvU3zg';
+
+  // CEP de origem (loja)
+  static const String originCep = '01310100'; // Ajuste para o CEP real da loja
+
+  // Mercado Pago
+  static const String mpPublicKey = 'APP_USR-e7fa04a2-ae7c-4325-8cb3-b69ffa90acf7';
+  static const String mpAccessToken =
+      'APP_USR-5951470604212822-030516-4a211a3e4e815ec9c11cd062c2216563-3246982974';
+}
+
+// ============================================================
+// CEP SERVICE
+// ============================================================
 class CepService {
   static Future<Address?> fetchAddress(String cep) async {
     try {
@@ -21,126 +45,329 @@ class CepService {
   }
 }
 
+// ============================================================
+// SHIPPING SERVICE — Melhor Envio real
+// ============================================================
 class ShippingService {
-  static Future<List<ShippingOption>> calculateShipping(String cep, double weightKg) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    final cleanCep = cep.replaceAll(RegExp(r'\D'), '');
-    final state = _getStateFromCep(cleanCep);
-    return _getMockShipping(state, weightKg);
-  }
+  static const String _baseUrl = 'https://www.melhorenvio.com.br/api/v2';
 
-  static String _getStateFromCep(String cep) {
-    if (cep.isEmpty) return 'SP';
-    final prefix = int.tryParse(cep.substring(0, 2)) ?? 0;
-    if (prefix >= 1 && prefix <= 19) return 'SP';
-    if (prefix >= 20 && prefix <= 28) return 'RJ';
-    if (prefix >= 29 && prefix <= 29) return 'ES';
-    if (prefix >= 30 && prefix <= 39) return 'MG';
-    if (prefix >= 40 && prefix <= 48) return 'BA';
-    if (prefix >= 49 && prefix <= 49) return 'SE';
-    if (prefix >= 50 && prefix <= 56) return 'PE';
-    if (prefix >= 57 && prefix <= 57) return 'AL';
-    if (prefix >= 58 && prefix <= 58) return 'PB';
-    if (prefix >= 59 && prefix <= 59) return 'RN';
-    if (prefix >= 60 && prefix <= 63) return 'CE';
-    if (prefix >= 64 && prefix <= 64) return 'PI';
-    if (prefix >= 65 && prefix <= 65) return 'MA';
-    if (prefix >= 66 && prefix <= 68) return 'PA';
-    if (prefix >= 69 && prefix <= 69) return 'AM';
-    if (prefix >= 70 && prefix <= 73) return 'DF';
-    if (prefix >= 74 && prefix <= 76) return 'GO';
-    if (prefix >= 77 && prefix <= 77) return 'TO';
-    if (prefix >= 78 && prefix <= 78) return 'MT';
-    if (prefix >= 79 && prefix <= 79) return 'MS';
-    if (prefix >= 80 && prefix <= 87) return 'PR';
-    if (prefix >= 88 && prefix <= 89) return 'SC';
-    if (prefix >= 90 && prefix <= 99) return 'RS';
-    return 'SP';
-  }
+  /// Calcula frete via Melhor Envio (API real).
+  /// Dimensões padrão de uma caixa de persiana.
+  static Future<List<ShippingOption>> calculateShipping(
+      String destCep, double weightKg) async {
+    final cleanDest = destCep.replaceAll(RegExp(r'\D'), '');
+    if (cleanDest.length != 8) return _fallback();
 
-  static List<ShippingOption> _getMockShipping(String state, double weightKg) {
-    double pacPrice, sedexPrice;
-    int pacMin, pacMax, sedexMin, sedexMax;
-    switch (state) {
-      case 'SP':
-        pacPrice = 28.90; pacMin = 3; pacMax = 5;
-        sedexPrice = 48.90; sedexMin = 1; sedexMax = 2;
-        break;
-      case 'RJ': case 'MG': case 'ES':
-        pacPrice = 38.90; pacMin = 4; pacMax = 7;
-        sedexPrice = 64.90; sedexMin = 2; sedexMax = 3;
-        break;
-      case 'PR': case 'SC': case 'RS':
-        pacPrice = 42.90; pacMin = 5; pacMax = 8;
-        sedexPrice = 72.90; sedexMin = 2; sedexMax = 4;
-        break;
-      default:
-        pacPrice = 58.90; pacMin = 8; pacMax = 12;
-        sedexPrice = 98.90; sedexMin = 3; sedexMax = 5;
+    try {
+      final body = jsonEncode({
+        'from': {'postal_code': AppConfig.originCep},
+        'to': {'postal_code': cleanDest},
+        'package': {
+          'height': 15,
+          'width': 30,
+          'length': 200,
+          'weight': weightKg < 1 ? 1 : weightKg,
+        },
+        'options': {
+          'insurance_value': 0,
+          'receipt': false,
+          'own_hand': false,
+        },
+        'services': '1,2,3,4,7,8', // PAC, SEDEX, Mini, + transportadoras
+      });
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/me/shipment/calculate'),
+        headers: {
+          'Authorization': 'Bearer ${AppConfig.melhorEnvioToken}',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ControlPersianas/1.0 (finottiborges@hotmail.com)',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final List<ShippingOption> options = [];
+
+        for (final item in data) {
+          if (item['error'] != null) continue;
+          final price = double.tryParse(item['price']?.toString() ?? '') ?? 0;
+          if (price <= 0) continue;
+
+          options.add(ShippingOption(
+            name: '${item['company']?['name'] ?? ''} — ${item['name'] ?? ''}',
+            carrier: item['company']?['name'] ?? 'Transportadora',
+            price: price,
+            minDays: int.tryParse(item['delivery_range']?['min']?.toString() ?? '3') ?? 3,
+            maxDays: int.tryParse(item['delivery_range']?['max']?.toString() ?? '7') ?? 7,
+            service: item['id']?.toString() ?? '',
+          ));
+        }
+
+        if (options.isNotEmpty) {
+          options.sort((a, b) => a.price.compareTo(b.price));
+          return options.take(4).toList();
+        }
+      }
+      if (kDebugMode) debugPrint('MelhorEnvio status: ${response.statusCode} — ${response.body}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('ShippingService error: $e');
     }
-    final weightFactor = weightKg > 5 ? (weightKg / 5) : 1.0;
+
+    // Fallback com valores estimados
+    return _fallback();
+  }
+
+  static List<ShippingOption> _fallback() {
     return [
       ShippingOption(
         name: 'PAC (Correios)',
         carrier: 'Correios',
-        price: pacPrice * weightFactor,
-        minDays: pacMin,
-        maxDays: pacMax,
+        price: 39.90,
+        minDays: 5,
+        maxDays: 10,
         service: 'PAC',
       ),
       ShippingOption(
         name: 'SEDEX (Correios)',
         carrier: 'Correios',
-        price: sedexPrice * weightFactor,
-        minDays: sedexMin,
-        maxDays: sedexMax,
+        price: 69.90,
+        minDays: 2,
+        maxDays: 4,
         service: 'SEDEX',
-      ),
-      ShippingOption(
-        name: 'Transportadora',
-        carrier: 'Jadlog',
-        price: (pacPrice * 0.85) * weightFactor,
-        minDays: pacMin + 1,
-        maxDays: pacMax + 2,
-        service: 'PACKAGE',
       ),
     ];
   }
 }
 
-class PaymentService {
+// ============================================================
+// MERCADO PAGO SERVICE — Integração real
+// ============================================================
+class MercadoPagoService {
+  static const String _baseUrl = 'https://api.mercadopago.com';
+
   static String generateOrderNumber() {
     final now = DateTime.now();
-    return 'CPO${now.year}${now.month.toString().padLeft(2, '0')}${now.millisecond.toString().padLeft(3, '0')}';
+    return 'CPO${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.millisecond.toString().padLeft(3, '0')}';
   }
+
+  /// Cria pagamento PIX via Mercado Pago
+  static Future<Map<String, dynamic>> createPixPayment({
+    required double amount,
+    required String orderNumber,
+    required String buyerName,
+    required String buyerEmail,
+    required String buyerCpf,
+  }) async {
+    try {
+      final nameParts = buyerName.trim().split(' ');
+      final firstName = nameParts.first;
+      final lastName = nameParts.length > 1 ? nameParts.last : firstName;
+
+      final body = jsonEncode({
+        'transaction_amount': double.parse(amount.toStringAsFixed(2)),
+        'description': 'Control Persianas Online — Pedido $orderNumber',
+        'payment_method_id': 'pix',
+        'payer': {
+          'email': buyerEmail,
+          'first_name': firstName,
+          'last_name': lastName,
+          'identification': {
+            'type': 'CPF',
+            'number': buyerCpf.replaceAll(RegExp(r'\D'), ''),
+          },
+        },
+        'external_reference': orderNumber,
+        'notification_url':
+            'https://controlpersianas.com.br/api/mercadopago/webhook',
+        'date_of_expiration': DateTime.now()
+            .add(const Duration(hours: 24))
+            .toUtc()
+            .toIso8601String(),
+      });
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/v1/payments'),
+        headers: {
+          'Authorization': 'Bearer ${AppConfig.mpAccessToken}',
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': orderNumber,
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final txInfo = data['point_of_interaction']?['transaction_data'];
+        return {
+          'status': 'pending',
+          'payment_id': data['id']?.toString() ?? '',
+          'qr_code_text': txInfo?['qr_code'] ?? '',
+          'qr_code_base64': txInfo?['qr_code_base64'] ?? '',
+          'expires_at': data['date_of_expiration'] ?? '',
+          'amount': amount,
+        };
+      }
+      if (kDebugMode) debugPrint('MP PIX error: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('MP PIX exception: $e');
+    }
+
+    // Fallback — exibe tela de espera e orienta pagamento manual
+    return {
+      'status': 'pending',
+      'payment_id': 'LOCAL_${DateTime.now().millisecondsSinceEpoch}',
+      'qr_code_text': '',
+      'qr_code_base64': '',
+      'expires_at': DateTime.now().add(const Duration(hours: 24)).toIso8601String(),
+      'amount': amount,
+      'fallback': true,
+    };
+  }
+
+  /// Cria preferência de pagamento para Checkout Pro (cartão, boleto etc.)
+  static Future<Map<String, dynamic>> createCheckoutPreference({
+    required double amount,
+    required String orderNumber,
+    required String productDescription,
+    required String buyerEmail,
+    required int installments,
+  }) async {
+    try {
+      final installmentValue =
+          double.parse((amount / installments).toStringAsFixed(2));
+
+      final body = jsonEncode({
+        'items': [
+          {
+            'id': orderNumber,
+            'title': productDescription,
+            'quantity': 1,
+            'unit_price': double.parse(amount.toStringAsFixed(2)),
+            'currency_id': 'BRL',
+          }
+        ],
+        'payer': {'email': buyerEmail},
+        'payment_methods': {
+          'installments': installments,
+          'default_installments': installments,
+        },
+        'external_reference': orderNumber,
+        'notification_url':
+            'https://controlpersianas.com.br/api/mercadopago/webhook',
+        'back_urls': {
+          'success': 'https://controlpersianas.com.br/pedido/sucesso',
+          'failure': 'https://controlpersianas.com.br/pedido/erro',
+          'pending': 'https://controlpersianas.com.br/pedido/pendente',
+        },
+        'auto_return': 'approved',
+      });
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/checkout/preferences'),
+        headers: {
+          'Authorization': 'Bearer ${AppConfig.mpAccessToken}',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return {
+          'status': 'created',
+          'preference_id': data['id'] ?? '',
+          'init_point': data['init_point'] ?? '',
+          'installments': installments,
+          'installment_value': installmentValue,
+          'amount': amount,
+        };
+      }
+      if (kDebugMode) debugPrint('MP card error: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('MP card exception: $e');
+    }
+
+    return {
+      'status': 'error',
+      'installments': installments,
+      'installment_value': amount / installments,
+      'amount': amount,
+    };
+  }
+
+  /// Consulta status de um pagamento
+  static Future<String> getPaymentStatus(String paymentId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/v1/payments/$paymentId'),
+        headers: {'Authorization': 'Bearer ${AppConfig.mpAccessToken}'},
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] ?? 'unknown';
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('MP status check error: $e');
+    }
+    return 'unknown';
+  }
+}
+
+// Alias para compatibilidade com código existente
+class PaymentService {
+  static String generateOrderNumber() => MercadoPagoService.generateOrderNumber();
 
   static Future<Map<String, dynamic>> createPixPayment({
     required double amount,
     required String orderNumber,
     required String buyerName,
     required String buyerEmail,
-  }) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return {
-      'status': 'pending',
-      'payment_id': 'PIX_${DateTime.now().millisecondsSinceEpoch}',
-      'qr_code': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-      'qr_code_text': '00020126330014BR.GOV.BCB.PIX0111${orderNumber}5204000053039865406${amount.toStringAsFixed(2).replaceAll('.', '')}5802BR5913${buyerName.substring(0, buyerName.length > 13 ? 13 : buyerName.length)}6008BRASILIA62070503***6304',
-      'expires_at': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-    };
-  }
+    String buyerCpf = '',
+  }) => MercadoPagoService.createPixPayment(
+        amount: amount,
+        orderNumber: orderNumber,
+        buyerName: buyerName,
+        buyerEmail: buyerEmail,
+        buyerCpf: buyerCpf,
+      );
 
   static Future<Map<String, dynamic>> createCardPayment({
     required double amount,
     required String orderNumber,
     required int installments,
-  }) async {
-    await Future.delayed(const Duration(seconds: 2));
-    return {
-      'status': 'approved',
-      'payment_id': 'CARD_${DateTime.now().millisecondsSinceEpoch}',
-      'installments': installments,
-      'installment_amount': amount / installments,
-    };
+    String buyerEmail = '',
+  }) => MercadoPagoService.createCheckoutPreference(
+        amount: amount,
+        orderNumber: orderNumber,
+        productDescription: 'Control Persianas Online — Pedido $orderNumber',
+        buyerEmail: buyerEmail,
+        installments: installments,
+      );
+}
+
+// ============================================================
+// WHATSAPP SERVICE
+// ============================================================
+class WhatsAppService {
+  static String buildUrl({String message = ''}) {
+    final encoded = Uri.encodeComponent(message);
+    return 'https://wa.me/${AppConfig.whatsappNumber}?text=$encoded';
   }
+
+  static String orderMessage(String orderNumber, double total) =>
+      'Olá! Tenho uma dúvida sobre o pedido *$orderNumber* — Total: R\$ ${total.toStringAsFixed(2)}';
+
+  static String supportMessage() =>
+      'Olá! Gostaria de tirar uma dúvida sobre persianas.';
+
+  static String budgetMessage(String model, String fabric, double width,
+          double height, double price) =>
+      'Olá! Gostaria de um orçamento:\n'
+      '*Modelo:* $model\n'
+      '*Tecido:* $fabric\n'
+      '*Medidas:* ${width.toStringAsFixed(2)}m × ${height.toStringAsFixed(2)}m\n'
+      '*Valor estimado:* R\$ ${price.toStringAsFixed(2)}';
 }

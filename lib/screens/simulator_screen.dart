@@ -333,7 +333,7 @@ class _StepModelo extends StatelessWidget {
 }
 
 // ============================================================
-// STEP 3 — TECIDO
+// STEP 3 — TECIDO E COR
 // ============================================================
 class _StepTecido extends StatefulWidget {
   final VoidCallback onNext;
@@ -343,7 +343,10 @@ class _StepTecido extends StatefulWidget {
 }
 
 class _StepTecidoState extends State<_StepTecido> {
-  FabricType? _selected;
+  FabricType? _selectedFabric;
+  FabricColor? _selectedColor;
+
+  bool get _canProceed => _selectedFabric != null && _selectedColor != null;
 
   @override
   Widget build(BuildContext context) {
@@ -358,23 +361,27 @@ class _StepTecidoState extends State<_StepTecido> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Escolha o Tecido',
+                // ── Título ──
+                Text('Tecido e Cor',
                     style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                const Text('Toque para selecionar o tecido desejado',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                const SizedBox(height: 4),
+                const Text('Selecione o tecido e depois escolha a cor',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                 const SizedBox(height: 20),
+
+                // ── Lista de tecidos ──
+                Text('1. Escolha o Tecido',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 10),
                 ...fabrics.map((fabric) {
-                  final price =
-                      PricingModel.getPricePerM2(sim.config.category, fabric) ?? 0;
-                  final colorHex = fabric.colorHex;
-                  final color = Color(int.parse(
-                      'FF${colorHex.replaceAll('#', '')}',
-                      radix: 16));
-                  final isSelected = _selected == fabric;
+                  final price = PricingModel.getPricePerM2(sim.config.category, fabric) ?? 0;
+                  final isSelected = _selectedFabric == fabric;
 
                   return GestureDetector(
-                    onTap: () => setState(() => _selected = fabric),
+                    onTap: () => setState(() {
+                      _selectedFabric = fabric;
+                      _selectedColor = null; // reset cor ao trocar tecido
+                    }),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(bottom: 10),
@@ -385,60 +392,176 @@ class _StepTecidoState extends State<_StepTecido> {
                             : AppColors.white,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.grey200,
+                          color: isSelected ? AppColors.primary : AppColors.grey200,
                           width: isSelected ? 2 : 1,
                         ),
-                        boxShadow: [
-                          BoxShadow(color: AppColors.shadow, blurRadius: 4)
-                        ],
+                        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4)],
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.grey300),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(fabric.displayName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14)),
-                                Text(fabric.lightBlock,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          Row(
                             children: [
-                              Text(formatCurrency(price),
-                                  style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14)),
-                              const Text('por m²',
-                                  style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.textSecondary)),
+                              // Swatches das primeiras 4 cores disponíveis
+                              SizedBox(
+                                width: 72,
+                                height: 44,
+                                child: Stack(
+                                  children: fabric.availableColors.take(4).toList().asMap().entries.map((e) {
+                                    return Positioned(
+                                      left: e.key * 16.0,
+                                      child: Container(
+                                        width: 36,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: e.value.color,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.white, width: 1.5),
+                                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 2)],
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(fabric.displayName,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(fabric.lightBlock,
+                                              style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w500)),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text('${fabric.availableColors.length} cores',
+                                            style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(formatCurrency(price),
+                                      style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
+                                  const Text('por m²',
+                                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.check_circle, color: AppColors.primary, size: 22),
+                              ],
                             ],
                           ),
+
+                          // ── Seletor de cores (aparece ao selecionar o tecido) ──
                           if (isSelected) ...[
-                            const SizedBox(width: 8),
-                            const Icon(Icons.check_circle,
-                                color: AppColors.primary, size: 22),
+                            const SizedBox(height: 14),
+                            const Divider(height: 1),
+                            const SizedBox(height: 12),
+                            Text('2. Escolha a Cor',
+                                style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: fabric.availableColors.map((fc) {
+                                final isCor = _selectedColor?.name == fc.name;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _selectedColor = fc),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isCor ? AppColors.primary.withValues(alpha: 0.08) : AppColors.grey100,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isCor ? AppColors.primary : AppColors.grey200,
+                                        width: isCor ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: fc.color,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isCor ? AppColors.primary : AppColors.grey300,
+                                              width: isCor ? 2 : 1,
+                                            ),
+                                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3)],
+                                          ),
+                                          child: isCor
+                                              ? Icon(Icons.check,
+                                                  size: 14,
+                                                  color: fc.color.computeLuminance() > 0.5
+                                                      ? Colors.black87
+                                                      : Colors.white)
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 7),
+                                        Text(fc.name,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: isCor ? FontWeight.w600 : FontWeight.normal,
+                                              color: isCor ? AppColors.primary : AppColors.textPrimary,
+                                            )),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+
+                            // Preview da cor selecionada
+                            if (_selectedColor != null) ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                width: double.infinity,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: _selectedColor!.color,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.grey300),
+                                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.25),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${fabric.displayName} — ${_selectedColor!.name}',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),
@@ -449,16 +572,111 @@ class _StepTecidoState extends State<_StepTecido> {
             ),
           ),
         ),
-        _BottomActionBar(
-          enabled: _selected != null,
-          onNext: () {
-            if (_selected != null) {
-              context.read<SimulatorProvider>().setFabric(_selected!);
-              widget.onNext();
-            }
-          },
+
+        // ── Barra inferior com status ──
+        Container(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: const Offset(0, -2))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Indicadores de seleção
+              Row(
+                children: [
+                  _SelectionBadge(
+                    label: _selectedFabric?.displayName ?? 'Tecido não selecionado',
+                    done: _selectedFabric != null,
+                    icon: Icons.texture,
+                  ),
+                  const SizedBox(width: 8),
+                  _SelectionBadge(
+                    label: _selectedColor?.name ?? 'Cor não selecionada',
+                    done: _selectedColor != null,
+                    icon: Icons.palette_outlined,
+                    color: _selectedColor?.color,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: GradientButton(
+                  label: _canProceed ? 'Continuar' : 'Selecione tecido e cor',
+                  onPressed: _canProceed
+                      ? () {
+                          context.read<SimulatorProvider>().setFabric(_selectedFabric!);
+                          context.read<SimulatorProvider>().setFabricColor(_selectedColor!.name);
+                          widget.onNext();
+                        }
+                      : null,
+                  icon: Icons.arrow_forward,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _SelectionBadge extends StatelessWidget {
+  final String label;
+  final bool done;
+  final IconData icon;
+  final Color? color;
+  const _SelectionBadge({required this.label, required this.done, required this.icon, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: done
+              ? AppColors.success.withValues(alpha: 0.08)
+              : AppColors.grey100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: done ? AppColors.success.withValues(alpha: 0.4) : AppColors.grey200,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (color != null)
+              Container(
+                width: 14, height: 14,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.grey300),
+                ),
+              )
+            else
+              Icon(icon, size: 14, color: done ? AppColors.success : AppColors.grey400),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: done ? FontWeight.w600 : FontWeight.normal,
+                  color: done ? AppColors.success : AppColors.grey500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (done) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_circle, size: 12, color: AppColors.success),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1133,6 +1351,11 @@ class _StepResumo extends StatelessWidget {
                             icon: Icons.texture,
                             label: 'Tecido',
                             value: config.fabric!.displayName),
+                      if (config.fabricColor != null)
+                        _ResumoRow(
+                            icon: Icons.palette_outlined,
+                            label: 'Cor',
+                            value: config.fabricColor!),
                       if (config.installation != null)
                         _ResumoRow(
                             icon: Icons.construction_outlined,

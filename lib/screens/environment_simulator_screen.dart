@@ -13,9 +13,10 @@ class EnvironmentSimulatorScreen extends StatefulWidget {
 
 class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen> {
   Uint8List? _imageBytes;
+  String? _demoImageUrl;       // URL direto para ambientes demo (sem CORS)
   ProductCategory _category = ProductCategory.rolo;
   double _blindOpacity = 0.85;
-  double _blindPosition = 0.0; // 0 = open, 1 = closed
+  double _blindPosition = 0.0;
   double _lightControl = 0.5;
   bool _showControls = true;
   final ImagePicker _picker = ImagePicker();
@@ -45,6 +46,12 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
         actions: [
           if (_imageBytes != null)
             IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: _share),
+          if (_imageBytes != null || _demoImageUrl != null)
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white70),
+              tooltip: 'Trocar ambiente',
+              onPressed: () => setState(() { _imageBytes = null; _demoImageUrl = null; }),
+            ),
           IconButton(
             icon: Icon(_showControls ? Icons.visibility_off : Icons.tune, color: Colors.white),
             onPressed: () => setState(() => _showControls = !_showControls),
@@ -53,65 +60,148 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
       ),
       body: Column(
         children: [
-          Expanded(child: _imageBytes == null ? _buildPickerUI() : _buildSimulator()),
-          if (_showControls && _imageBytes != null) _buildControlPanel(),
+          Expanded(child: (_imageBytes == null && _demoImageUrl == null)
+              ? _buildPickerUI()
+              : _buildSimulator()),
+          if (_showControls && (_imageBytes != null || _demoImageUrl != null)) _buildControlPanel(),
         ],
       ),
     );
   }
 
+  // Ambientes de demonstração para preview web
+  static const List<Map<String, String>> _demoRooms = [
+    {'url': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80', 'label': 'Sala de Estar'},
+    {'url': 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=80', 'label': 'Home Office'},
+    {'url': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80', 'label': 'Quarto'},
+    {'url': 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=800&q=80', 'label': 'Sala Moderna'},
+    {'url': 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80', 'label': 'Escritório'},
+    {'url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80', 'label': 'Varanda'},
+  ];
+
+  bool _loadingDemo = false;
+
+  Future<void> _loadDemoRoom(String url) async {
+    // Usa Image.network direto — sem CORS, funciona no web
+    setState(() { _demoImageUrl = url; _loadingDemo = false; });
+  }
+
   Widget _buildPickerUI() {
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+          const SizedBox(height: 12),
+          const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 48),
+          const SizedBox(height: 12),
+          const Text('Simule a persiana no seu ambiente',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          const Text('Escolha um ambiente abaixo ou envie sua própria foto',
+              style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          // Botões de upload
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(ImageSource.gallery),
+              icon: const Icon(Icons.photo_library, size: 18),
+              label: const Text('Minha Foto'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
             ),
-            child: const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 56),
-          ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: () => _pickImage(ImageSource.camera),
+              icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white70),
+              label: const Text('Câmera', style: TextStyle(color: Colors.white70)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.white38),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
+          ]),
           const SizedBox(height: 24),
-          const Text('Simule a persiana na sua janela', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Tire uma foto ou escolha da galeria', style: TextStyle(color: Colors.white70, fontSize: 14)),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _PickerButton(icon: Icons.camera_alt, label: 'Câmera', onTap: () => _pickImage(ImageSource.camera)),
-              const SizedBox(width: 16),
-              _PickerButton(icon: Icons.photo_library, label: 'Galeria', onTap: () => _pickImage(ImageSource.gallery)),
-            ],
-          ),
+          // Divisor
+          Row(children: [
+            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('ou escolha um ambiente de demonstração',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+            ),
+            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+          ]),
+          const SizedBox(height: 16),
+          // Grid de ambientes demo
+          if (_loadingDemo)
+            const CircularProgressIndicator(color: Colors.white)
+          else
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 10, mainAxisSpacing: 10,
+              childAspectRatio: 1.5,
+              children: _demoRooms.map((r) => GestureDetector(
+                onTap: () => _loadDemoRoom(r['url']!),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(fit: StackFit.expand, children: [
+                    Image.network(r['url']!, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade800,
+                            child: const Icon(Icons.image, color: Colors.white38, size: 32))),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.65)],
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                    Positioned(bottom: 8, left: 0, right: 0,
+                      child: Text(r['label']!,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center)),
+                    Positioned(top: 6, right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.touch_app_outlined, color: Colors.white, size: 13),
+                      )),
+                  ]),
+                ),
+              )).toList(),
+            ),
           const SizedBox(height: 24),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.tips_and_updates_outlined, color: Colors.amber, size: 18),
-                SizedBox(width: 8),
-                Expanded(child: Text('Dica: posicione a câmera de frente para a janela para melhor resultado', style: TextStyle(color: Colors.white70, fontSize: 12))),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildSimulator() {
+    // Imagem de fundo: pode ser foto local (bytes) ou URL de demo
+    Widget bgImage = _imageBytes != null
+        ? Image.memory(_imageBytes!, fit: BoxFit.contain)
+        : Image.network(
+            _demoImageUrl!,
+            fit: BoxFit.contain,
+            loadingBuilder: (_, child, progress) => progress == null
+                ? child
+                : const Center(child: CircularProgressIndicator(color: Colors.white)),
+            errorBuilder: (_, __, ___) => const Center(
+                child: Text('Erro ao carregar imagem', style: TextStyle(color: Colors.white))),
+          );
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.memory(_imageBytes!, fit: BoxFit.contain),
+        bgImage,
         Positioned(
           top: 0,
           left: MediaQuery.of(context).size.width * 0.1,
@@ -122,7 +212,6 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
             child: _buildBlindVisual(),
           ),
         ),
-        // Light overlay
         Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -130,27 +219,25 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
             ),
           ),
         ),
-        // Action buttons overlay
         Positioned(
-          bottom: 16,
-          right: 16,
-          child: Column(
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'cam',
-                onPressed: () => _pickImage(ImageSource.camera),
-                backgroundColor: Colors.black54,
-                child: const Icon(Icons.camera_alt, color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton.small(
-                heroTag: 'gallery',
-                onPressed: () => _pickImage(ImageSource.gallery),
-                backgroundColor: Colors.black54,
-                child: const Icon(Icons.photo_library, color: Colors.white),
-              ),
-            ],
-          ),
+          bottom: 16, right: 16,
+          child: Column(children: [
+            FloatingActionButton.small(
+              heroTag: 'change_img',
+              onPressed: () => setState(() { _imageBytes = null; _demoImageUrl = null; }),
+              backgroundColor: Colors.black54,
+              tooltip: 'Trocar ambiente',
+              child: const Icon(Icons.swap_horiz, color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton.small(
+              heroTag: 'gallery',
+              onPressed: () => _pickImage(ImageSource.gallery),
+              backgroundColor: Colors.black54,
+              tooltip: 'Minha foto',
+              child: const Icon(Icons.photo_library, color: Colors.white),
+            ),
+          ]),
         ),
       ],
     );
@@ -259,15 +346,30 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1080);
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1080,
+      );
       if (picked != null) {
         final bytes = await picked.readAsBytes();
         setState(() => _imageBytes = bytes);
       }
     } catch (e) {
+      // No web, image_picker usa <input type="file"> automaticamente
+      // Se falhar, mostrar instrução clara
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível acessar a câmera/galeria no preview web. Use o app no celular!')),
+          SnackBar(
+            content: const Text('Clique em "Galeria" e selecione uma foto da janela do seu computador.'),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Entendi',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
         );
       }
     }
@@ -276,35 +378,6 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
   void _share() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Simulação salva! Compartilhando...')),
-    );
-  }
-}
-
-class _PickerButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _PickerButton({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.white, size: 28),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
     );
   }
 }

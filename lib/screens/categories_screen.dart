@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../widgets/common_widgets.dart';
 import 'simulator_screen.dart';
+import 'educational_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -15,6 +16,13 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   ProductCategory _selected = ProductCategory.rolo;
+  int _heroImageIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant CategoriesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _heroImageIndex = 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +48,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           children: ProductCategory.values.map((cat) {
             final isSelected = _selected == cat;
             return GestureDetector(
-              onTap: () => setState(() => _selected = cat),
+              onTap: () => setState(() {
+                _selected = cat;
+                _heroImageIndex = 0;
+              }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.only(right: 8),
@@ -82,6 +93,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           _buildFeatures(),
           const SizedBox(height: 20),
           _buildDimensions(),
+          const SizedBox(height: 16),
+          _buildEducationalLink(),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -100,40 +113,111 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildProductHero() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Stack(
-        children: [
-          SizedBox(
-            height: 220,
-            width: double.infinity,
-            child: CachedNetworkImage(
-              imageUrl: _selected.imageNetwork,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(color: AppColors.grey200, child: const Icon(Icons.image, size: 60, color: AppColors.grey400)),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.transparent, AppColors.grey900.withValues(alpha: 0.8)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+    final images = _selected.galleryImages;
+    final current = images[_heroImageIndex % images.length];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              SizedBox(
+                height: 220,
+                width: double.infinity,
+                child: CachedNetworkImage(
+                  imageUrl: current,
+                  fit: BoxFit.cover,
+                  key: ValueKey(current),
+                  errorWidget: (_, __, ___) => Container(color: AppColors.grey200, child: const Icon(Icons.image, size: 60, color: AppColors.grey400)),
                 ),
               ),
-              child: Text(
-                _selected.displayName,
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              Container(
+                height: 220,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.transparent, AppColors.grey900.withValues(alpha: 0.75)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                left: 16,
+                right: 16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selected.displayName,
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          _selected.categoryDescription,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    // Gallery dots
+                    if (images.length > 1)
+                      Row(
+                        children: List.generate(images.length, (i) => GestureDetector(
+                          onTap: () => setState(() => _heroImageIndex = i),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.only(left: 4),
+                            width: i == _heroImageIndex ? 18 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: i == _heroImageIndex ? Colors.white : Colors.white54,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        )),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Thumbnail gallery
+        if (images.length > 1)
+          SizedBox(
+            height: 64,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: images.length,
+              itemBuilder: (context, i) => GestureDetector(
+                onTap: () => setState(() => _heroImageIndex = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 8),
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: i == _heroImageIndex ? AppColors.primary : AppColors.grey300,
+                      width: i == _heroImageIndex ? 2.5 : 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: CachedNetworkImage(
+                    imageUrl: images[i],
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(color: AppColors.grey200),
+                  ),
+                ),
               ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -191,6 +275,43 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
     );
   }
+
+  Widget _buildEducationalLink() {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EducationalScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.school_outlined, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Como medir e instalar?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Veja nossos guias completos com fotos e dicas', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _DimensionRow extends StatelessWidget {
@@ -219,47 +340,105 @@ class _FabricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final price = PricingModel.getPricePerM2(category, fabric) ?? 0;
-    final colorHex = fabric.colorHex;
-    final color = Color(int.parse('FF${colorHex.replaceAll('#', '')}', radix: 16));
+    final colors = fabric.availableColors;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.grey200),
         boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 4)],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.grey300),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(fabric.displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text(fabric.lightBlock, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                // Stacked color swatches
+                SizedBox(
+                  width: 72,
+                  height: 46,
+                  child: Stack(
+                    children: colors.take(4).toList().asMap().entries.map((e) => Positioned(
+                      left: e.key * 16.0,
+                      child: Container(
+                        width: 38,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: e.value.color,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 2)],
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(fabric.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(fabric.lightBlock,
+                                style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w500)),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('${colors.length} cores',
+                              style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(formatCurrency(price),
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('por m²', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                  ],
+                ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(formatCurrency(price), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14)),
-              const Text('por m²', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+            // Color swatches row
+            if (colors.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: colors.map((fc) => Tooltip(
+                  message: fc.name,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: fc.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.grey300, width: 1),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 2)],
+                    ),
+                  ),
+                )).toList(),
+              ),
             ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

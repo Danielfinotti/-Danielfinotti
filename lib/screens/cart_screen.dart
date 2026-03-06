@@ -5,7 +5,6 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../widgets/common_widgets.dart';
 import 'checkout_screen.dart';
-
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
@@ -127,6 +126,10 @@ class _CartItemCard extends StatelessWidget {
               if (config.width != null && config.height != null)
                 _InfoChip('${config.width!.toStringAsFixed(2)}m × ${config.height!.toStringAsFixed(2)}m'),
               _InfoChip('Área: ${config.billedArea.toStringAsFixed(2)} m²'),
+              if (config.fabric != null)
+                _InfoChip(config.fabric!.displayName),
+              if (config.fabricColor != null)
+                _InfoChipColor(config.fabricColor!, config.fabric),
               if (config.installation != null)
                 _InfoChip(config.installation!.displayName),
               ...config.accessories.map((a) => _InfoChip(a.displayName)),
@@ -190,6 +193,47 @@ class _InfoChip extends StatelessWidget {
         border: Border.all(color: AppColors.grey200),
       ),
       child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.grey700)),
+    );
+  }
+}
+
+class _InfoChipColor extends StatelessWidget {
+  final String colorName;
+  final FabricType? fabric;
+  const _InfoChipColor(this.colorName, this.fabric);
+
+  @override
+  Widget build(BuildContext context) {
+    Color? swatch;
+    if (fabric != null) {
+      try {
+        swatch = fabric!.availableColors.firstWhere((c) => c.name == colorName).color;
+      } catch (_) {}
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.grey100,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.grey200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (swatch != null) ...[
+            Container(
+              width: 12, height: 12,
+              decoration: BoxDecoration(
+                color: swatch,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.grey300, width: 0.5),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(colorName, style: const TextStyle(fontSize: 11, color: AppColors.grey700)),
+        ],
+      ),
     );
   }
 }

@@ -52,7 +52,12 @@ class SimulatorProvider extends ChangeNotifier {
   }
 
   void setFabric(FabricType fabric) {
-    _config = _config.copyWith(fabric: fabric);
+    _config = _config.copyWith(fabric: fabric, fabricColor: null);
+    notifyListeners();
+  }
+
+  void setFabricColor(String colorName) {
+    _config = _config.copyWith(fabricColor: colorName);
     notifyListeners();
   }
 

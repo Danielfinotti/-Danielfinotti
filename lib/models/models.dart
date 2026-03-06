@@ -1,6 +1,7 @@
 // ============================================================
 // MODELOS DE DADOS - Control Persianas Online
 // ============================================================
+import 'package:flutter/material.dart';
 
 enum ProductCategory {
   rolo,
@@ -54,15 +55,61 @@ extension ProductCategoryExtension on ProductCategory {
   String get imageNetwork {
     switch (this) {
       case ProductCategory.rolo:
-        return 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400';
+        return 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80';
       case ProductCategory.romana:
-        return 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400';
+        return 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80';
       case ProductCategory.doubleVision:
-        return 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=400';
+        return 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80';
       case ProductCategory.painel:
-        return 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=400';
+        return 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=600&q=80';
       case ProductCategory.horizontal25mm:
-        return 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400';
+        return 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80';
+    }
+  }
+
+  String get categoryDescription {
+    switch (this) {
+      case ProductCategory.rolo: return 'Prática e versátil para todos os ambientes';
+      case ProductCategory.romana: return 'Elegância clássica com dobras uniformes';
+      case ProductCategory.doubleVision: return 'Controle total de luz com dupla camada';
+      case ProductCategory.painel: return 'Ideal para grandes vãos e portas de vidro';
+      case ProductCategory.horizontal25mm: return 'Durável e resistente à umidade';
+    }
+  }
+
+  List<String> get galleryImages {
+    switch (this) {
+      case ProductCategory.rolo:
+        return [
+          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+          'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
+          'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80',
+          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
+        ];
+      case ProductCategory.romana:
+        return [
+          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
+          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+          'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=80',
+        ];
+      case ProductCategory.doubleVision:
+        return [
+          'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=80',
+          'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80',
+          'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
+        ];
+      case ProductCategory.painel:
+        return [
+          'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=800&q=80',
+          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
+          'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
+        ];
+      case ProductCategory.horizontal25mm:
+        return [
+          'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80',
+          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+          'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=80',
+        ];
     }
   }
 }
@@ -125,6 +172,106 @@ extension FabricTypeExtension on FabricType {
       case FabricType.manual25: return '#B8B8B8';
     }
   }
+
+  List<FabricColor> get availableColors {
+    switch (this) {
+      case FabricType.blackout:
+        return [
+          FabricColor('Preto', '#1A1A1A'),
+          FabricColor('Chumbo', '#3A3A3A'),
+          FabricColor('Cinza Escuro', '#555555'),
+          FabricColor('Marrom', '#5C3D2E'),
+          FabricColor('Azul Marinho', '#1A2744'),
+          FabricColor('Vinho', '#6B1C2A'),
+        ];
+      case FabricType.blackoutPremium:
+        return [
+          FabricColor('Preto Ébano', '#0D0D0D'),
+          FabricColor('Chumbo', '#2E2E2E'),
+          FabricColor('Cinza Grafite', '#404040'),
+          FabricColor('Azul Noite', '#0F1F3D'),
+          FabricColor('Chocolate', '#3B2314'),
+        ];
+      case FabricType.translucido:
+        return [
+          FabricColor('Branco', '#FFFFFF'),
+          FabricColor('Off-White', '#F8F4EE'),
+          FabricColor('Creme', '#F0E8D5'),
+          FabricColor('Bege', '#E8D9C0'),
+          FabricColor('Areia', '#D9C9A8'),
+          FabricColor('Linho', '#CFC0A0'),
+          FabricColor('Cinza Claro', '#DCDCDC'),
+          FabricColor('Azul Bebê', '#C8DCF0'),
+        ];
+      case FabricType.screen1:
+        return [
+          FabricColor('Cinza Chumbo', '#5A5A5A'),
+          FabricColor('Cinza Médio', '#7A7A7A'),
+          FabricColor('Areia', '#C8B89A'),
+          FabricColor('Bronze', '#8C7355'),
+          FabricColor('Preto Tela', '#2A2A2A'),
+        ];
+      case FabricType.screen3:
+        return [
+          FabricColor('Cinza Chumbo', '#606060'),
+          FabricColor('Cinza Claro', '#909090'),
+          FabricColor('Areia', '#C0A880'),
+          FabricColor('Bronze', '#907055'),
+          FabricColor('Branco Tela', '#E0DDD8'),
+          FabricColor('Preto', '#303030'),
+        ];
+      case FabricType.screen5:
+        return [
+          FabricColor('Cinza Médio', '#787878'),
+          FabricColor('Cinza Claro', '#ABABAB'),
+          FabricColor('Areia Clara', '#CFC0A0'),
+          FabricColor('Branco Tela', '#E8E5E0'),
+          FabricColor('Prata', '#B0B0B0'),
+        ];
+      case FabricType.semiBlackout:
+        return [
+          FabricColor('Branco/Cinza', '#E0E0E0'),
+          FabricColor('Bege/Areia', '#D8C8A8'),
+          FabricColor('Cinza/Cinza', '#A8A8A8'),
+          FabricColor('Preto/Cinza', '#484848'),
+          FabricColor('Marrom/Bege', '#987060'),
+        ];
+      case FabricType.translucidaDV:
+        return [
+          FabricColor('Branco/Branco', '#F8F8F8'),
+          FabricColor('Bege/Bege', '#E8D8B8'),
+          FabricColor('Cinza/Branco', '#D0CCCC'),
+          FabricColor('Areia/Creme', '#DDD0B0'),
+        ];
+      case FabricType.aluminio25:
+        return [
+          FabricColor('Branco', '#F5F5F5'),
+          FabricColor('Off-White', '#EEEBE5'),
+          FabricColor('Bege', '#E0D0B8'),
+          FabricColor('Prata', '#C8C8C8'),
+          FabricColor('Cinza', '#A0A0A0'),
+          FabricColor('Marrom', '#8C6848'),
+          FabricColor('Preto', '#282828'),
+        ];
+      case FabricType.manual25:
+        return [
+          FabricColor('Branco', '#F5F5F5'),
+          FabricColor('Off-White', '#EEEAE4'),
+          FabricColor('Bege', '#DDD0B5'),
+          FabricColor('Prata', '#C5C5C5'),
+          FabricColor('Cinza Escuro', '#606060'),
+          FabricColor('Preto', '#252525'),
+        ];
+    }
+  }
+}
+
+class FabricColor {
+  final String name;
+  final String hex;
+  const FabricColor(this.name, this.hex);
+
+  Color get color => Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
 }
 
 class PricingModel {

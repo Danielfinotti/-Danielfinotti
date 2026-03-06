@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -11,6 +12,7 @@ import 'categories_screen.dart';
 import 'cart_screen.dart';
 import 'account_screen.dart';
 import 'environment_simulator_screen.dart' as env_sim;
+import 'educational_screen.dart';
 import '../services/services.dart';
 
 class MainScreen extends StatefulWidget {
@@ -99,10 +101,14 @@ class _HomeScreenState extends State<HomeScreen> {
           SliverToBoxAdapter(child: _buildHeroBanner()),
           SliverToBoxAdapter(child: _buildQuickActions()),
           SliverToBoxAdapter(child: _buildCategories()),
+          SliverToBoxAdapter(child: _buildMaisQueridinhas()),
           SliverToBoxAdapter(child: _buildFeaturedProducts()),
           SliverToBoxAdapter(child: _buildHowItWorks()),
           SliverToBoxAdapter(child: _buildWhyChooseUs()),
+          SliverToBoxAdapter(child: _buildInspirationGallery()),
+          SliverToBoxAdapter(child: _buildEducationalSection()),
           SliverToBoxAdapter(child: _buildBanner()),
+          SliverToBoxAdapter(child: _buildWhatsAppBanner()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
@@ -401,6 +407,437 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildEducationalSection() {
+    final articles = [
+      {
+        'title': 'Como medir\ncorretamente',
+        'subtitle': 'Guia completo passo a passo',
+        'imageUrl': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+        'color': AppColors.primary,
+        'tab': 0,
+      },
+      {
+        'title': 'Qual persiana\nescolher?',
+        'subtitle': 'Conheça todos os modelos',
+        'imageUrl': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80',
+        'color': const Color(0xFF00897B),
+        'tab': 1,
+      },
+      {
+        'title': 'Tipos de\ninstalação',
+        'subtitle': 'Dentro ou fora do vão?',
+        'imageUrl': 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=600&q=80',
+        'color': const Color(0xFF6A1B9A),
+        'tab': 2,
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        SectionTitle(
+          title: 'Aprenda Mais',
+          subtitle: 'Guias e dicas de especialistas',
+          onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EducationalScreen())),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: articles.length,
+            itemBuilder: (context, i) {
+              final a = articles[i];
+              return GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EducationalScreen(initialTab: a['tab'] as int),
+                  ),
+                ),
+                child: Container(
+                  width: 180,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 8)],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: a['imageUrl'] as String,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => Container(color: AppColors.grey200),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.transparent, (a['color'] as Color).withValues(alpha: 0.85)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 8,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(a['title'] as String,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, height: 1.2)),
+                            const SizedBox(height: 2),
+                            Text(a['subtitle'] as String,
+                                style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), shape: BoxShape.circle),
+                          child: const Icon(Icons.arrow_forward, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInspirationGallery() {
+    final photos = [
+      {
+        'url': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80',
+        'label': 'Sala de Estar',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80',
+        'label': 'Home Office',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80',
+        'label': 'Quarto',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=600&q=80',
+        'label': 'Cozinha',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&q=80',
+        'label': 'Escritório',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+        'label': 'Varanda',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const SectionTitle(
+          title: 'Inspire-se',
+          subtitle: 'Ambientes decorados com nossas persianas',
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 130,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: photos.length,
+            itemBuilder: (context, i) {
+              final p = photos[i];
+              return Container(
+                width: 120,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: p['url']!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(color: AppColors.grey200),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      right: 8,
+                      child: Text(
+                        p['label']!,
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // AS MAIS QUERIDINHAS — preço isca
+  // ──────────────────────────────────────────
+  Widget _buildMaisQueridinhas() {
+    final items = [
+      {
+        'category': ProductCategory.rolo,
+        'fabric': 'Blackout',
+        'originalPrice': 329.90,
+        'promoPrice': 219.90,
+        'imageUrl': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+        'tag': '🔥 Mais Vendida',
+      },
+      {
+        'category': ProductCategory.doubleVision,
+        'fabric': 'Semi-Blackout',
+        'originalPrice': 529.90,
+        'promoPrice': 429.70,
+        'imageUrl': 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80',
+        'tag': '⭐ Destaque',
+      },
+      {
+        'category': ProductCategory.horizontal25mm,
+        'fabric': 'Alumínio 25mm',
+        'originalPrice': 279.90,
+        'promoPrice': 199.90,
+        'imageUrl': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80',
+        'tag': '💎 Melhor Custo',
+      },
+      {
+        'category': ProductCategory.romana,
+        'fabric': 'Blackout Premium',
+        'originalPrice': 449.90,
+        'promoPrice': 299.00,
+        'imageUrl': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80',
+        'tag': '✨ Elegante',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 28),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE53935), Color(0xFFFF7043)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            children: [
+              Text('💖', style: TextStyle(fontSize: 22)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('As Mais Queridinhas',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Preços especiais · Estoque limitado',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Icon(Icons.local_fire_department, color: Colors.white, size: 28),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 260,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              final item = items[i];
+              final cat = item['category'] as ProductCategory;
+              final originalPrice = item['originalPrice'] as double;
+              final promoPrice = item['promoPrice'] as double;
+              final discount = (((originalPrice - promoPrice) / originalPrice) * 100).round();
+
+              return GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ProductDetailScreen(category: cat)),
+                ),
+                child: Container(
+                  width: 175,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 10)],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Imagem
+                      Stack(
+                        children: [
+                          SizedBox(
+                            height: 140,
+                            width: double.infinity,
+                            child: CachedNetworkImage(
+                              imageUrl: item['imageUrl'] as String,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Container(color: AppColors.grey200),
+                            ),
+                          ),
+                          // Badge de desconto
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE53935),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text('-$discount%',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
+                          ),
+                          // Tag
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              color: Colors.black.withValues(alpha: 0.45),
+                              child: Text(
+                                item['tag'] as String,
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Conteúdo
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(cat.shortName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text(item['fabric'] as String,
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                            const SizedBox(height: 6),
+                            Text(
+                              'R\$ ${originalPrice.toStringAsFixed(2).replaceAll('.', ',')}/m²',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textHint,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                            Text(
+                              'R\$ ${promoPrice.toStringAsFixed(2).replaceAll('.', ',')}/m²',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFFE53935),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ──────────────────────────────────────────
+  // BANNER WHATSAPP
+  // ──────────────────────────────────────────
+  Widget _buildWhatsAppBanner() {
+    return GestureDetector(
+      onTap: () async {
+        final url = Uri.parse(WhatsAppService.buildUrl(message: WhatsAppService.supportMessage()));
+        if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF25D366),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: const Color(0xFF25D366).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.chat, color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fale conosco no WhatsApp',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text('Tire dúvidas, peça orçamento ou acompanhe seu pedido',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ============================================================
@@ -661,15 +1098,362 @@ class _ShippingCalculatorSheetState extends State<ShippingCalculatorSheet> {
   }
 }
 
-// Import placeholder screens
-class ProductDetailScreen extends StatelessWidget {
+// ============================================================
+// PRODUCT DETAIL SCREEN — tela completa de detalhe do produto
+// ============================================================
+class ProductDetailScreen extends StatefulWidget {
   final ProductCategory category;
   const ProductDetailScreen({super.key, required this.category});
   @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  int _heroIndex = 0;
+
+  // Descrições longas por categoria
+  static const Map<ProductCategory, String> _longDescriptions = {
+    ProductCategory.rolo:
+        'A Persiana Rolô é a escolha mais popular para ambientes modernos e práticos. '
+        'Com acionamento por corrente ou motor elétrico, ela permite controle total da luminosidade '
+        'com um único movimento. O tecido é enrolado em um tubo de alumínio com acabamento impecável, '
+        'sem acúmulo de poeira. Ideal para escritórios, salas, quartos e cozinhas. '
+        'Disponível em blackout, screen solar (1%, 3% e 5%) e translúcido.',
+    ProductCategory.romana:
+        'A Persiana Romana é sinônimo de elegância e sofisticação. Com dobras harmoniosas que '
+        'se formam ao abrir, ela confere charme e personalidade ao ambiente. '
+        'O tecido estruturado cai em pregas perfeitas, valorizando janelas e porta-janelas. '
+        'Indicada para salas de estar, quartos e ambientes que pedem um toque clássico. '
+        'Fabricamos com varetas de alumínio internas para manter o formato impecável.',
+    ProductCategory.doubleVision:
+        'A Double Vision (ou Zebra) combina duas camadas de tecido translúcida e opaca '
+        'que deslizam uma sobre a outra, permitindo regular a entrada de luz com precisão. '
+        'É a persiana mais versátil do mercado: filtra a luz do dia sem escurecer totalmente '
+        'ou bloqueia completamente quando necessário. '
+        'Design clean e moderno, perfeito para salas e áreas de trabalho.',
+    ProductCategory.painel:
+        'A Cortina Painel é a solução ideal para grandes vãos, porta-sacadas e janelas panorâmicas. '
+        'Os painéis deslizam lateralmente em trilho de alumínio de forma suave e silenciosa. '
+        'Permite combinar diferentes tecidos e cores no mesmo trilho, criando efeito decorativo único. '
+        'Excelente para substituir cortinas tradicionais com muito mais praticidade.',
+    ProductCategory.horizontal25mm:
+        'A Persiana Horizontal 25mm é fabricada em lâminas de alumínio de alta resistência, '
+        'perfeita para ambientes com alta umidade como cozinhas e banheiros. '
+        'As lâminas giram 180° para controle total de privacidade e luminosidade. '
+        'Muito durável, fácil de limpar e com vida útil superior a 10 anos. '
+        'Disponível na versão manual (cordão) e motorizada.',
+  };
+
+  // Vantagens rápidas por categoria
+  static const Map<ProductCategory, List<String>> _advantages = {
+    ProductCategory.rolo: [
+      '✓ Acionamento por corrente ou motor',
+      '✓ Design clean e minimalista',
+      '✓ Fácil limpeza com pano úmido',
+      '✓ Disponível em blackout e screen solar',
+      '✓ Travamento automático em qualquer posição',
+    ],
+    ProductCategory.romana: [
+      '✓ Dobras harmoniosas e elegantes',
+      '✓ Varetas internas de alumínio',
+      '✓ Tecido estruturado de alta qualidade',
+      '✓ Acionamento por corrente',
+      '✓ Perfeita para salas e quartos',
+    ],
+    ProductCategory.doubleVision: [
+      '✓ Dupla camada translúcida + opaca',
+      '✓ Regulagem precisa de luminosidade',
+      '✓ Sem visibilidade externa à noite',
+      '✓ Mecanismo de travamento suave',
+      '✓ Limpeza prática sem desmontar',
+    ],
+    ProductCategory.painel: [
+      '✓ Ideal para grandes vãos',
+      '✓ Trilho de alumínio silencioso',
+      '✓ Combina diferentes tecidos',
+      '✓ Substituição de painéis individual',
+      '✓ Moderno e decorativo',
+    ],
+    ProductCategory.horizontal25mm: [
+      '✓ Lâminas de alumínio 25mm',
+      '✓ Resistente à umidade e vapor',
+      '✓ Giro 180° de privacidade total',
+      '✓ Fácil limpeza com pano',
+      '✓ Vida útil superior a 10 anos',
+    ],
+  };
+
+  @override
   Widget build(BuildContext context) {
+    final cat = widget.category;
+    final images = cat.galleryImages;
+    final fabrics = PricingModel.getFabricsForCategory(cat);
+
     return Scaffold(
-      appBar: AppBar(title: Text(category.displayName)),
-      body: const Center(child: Text('Detalhes do Produto')),
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        slivers: [
+          // AppBar com galeria
+          SliverAppBar(
+            expandedHeight: 280,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    itemCount: images.length,
+                    onPageChanged: (i) => setState(() => _heroIndex = i),
+                    itemBuilder: (_, i) => CachedNetworkImage(
+                      imageUrl: images[i],
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: AppColors.grey200),
+                      errorWidget: (_, __, ___) => Container(
+                        color: AppColors.grey200,
+                        child: const Icon(Icons.image, size: 48, color: AppColors.grey400),
+                      ),
+                    ),
+                  ),
+                  // Gradiente inferior
+                  Positioned(
+                    bottom: 0, left: 0, right: 0,
+                    child: Container(
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Dots
+                  Positioned(
+                    bottom: 12, left: 0, right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(images.length, (i) => Container(
+                        width: _heroIndex == i ? 18 : 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: _heroIndex == i ? Colors.white : Colors.white54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      )),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            title: Text(cat.displayName, style: const TextStyle(fontSize: 16)),
+          ),
+
+          // Conteúdo
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Badge categoria
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(cat.displayName,
+                        style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Título + tagline
+                  Text(cat.displayName,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(cat.categoryDescription,
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+
+                  const SizedBox(height: 16),
+
+                  // Descrição longa
+                  Text('Sobre este Produto',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(
+                    _longDescriptions[cat] ?? cat.categoryDescription,
+                    style: const TextStyle(fontSize: 13.5, height: 1.55, color: AppColors.textSecondary),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Vantagens
+                  Text('Vantagens', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...(_advantages[cat] ?? []).map((adv) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text(adv, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  )),
+
+                  const SizedBox(height: 20),
+
+                  // Limites de medida
+                  _buildDimensions(cat),
+
+                  const SizedBox(height: 20),
+
+                  // Tecidos disponíveis
+                  Text('Tecidos Disponíveis',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  ...fabrics.map((f) => _FabricTile(fabric: f, category: cat)),
+
+                  const SizedBox(height: 24),
+
+                  // Botão Simular
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.straighten),
+                      label: const Text('Calcular Preço com Minhas Medidas'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        final simProv = context.read<SimulatorProvider>();
+                        simProv.setCategory(cat);
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const SimulatorScreen()),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDimensions(ProductCategory cat) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.straighten, color: AppColors.primary, size: 18),
+            const SizedBox(width: 8),
+            Text('Limites de Medida',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary)),
+          ]),
+          const SizedBox(height: 12),
+          _DimRow('Largura máxima', '${cat.maxWidth.toStringAsFixed(2)} m'),
+          _DimRow('Altura máxima', '3,00 m'),
+          _DimRow('Área mínima', '1,50 m²'),
+          _DimRow('Área máxima', '5,00 m²'),
+        ],
+      ),
+    );
+  }
+}
+
+class _DimRow extends StatelessWidget {
+  final String label, value;
+  const _DimRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FabricTile extends StatelessWidget {
+  final FabricType fabric;
+  final ProductCategory category;
+  const _FabricTile({required this.fabric, required this.category});
+  @override
+  Widget build(BuildContext context) {
+    final price = PricingModel.getPricePerM2(category, fabric);
+    final colorHex = fabric.colorHex.replaceAll('#', '');
+    final color = Color(int.parse('FF$colorHex', radix: 16));
+    final colors = fabric.availableColors.take(5).toList();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.grey200),
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          // Cor principal do tecido
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(fabric.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(fabric.lightBlock,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                const SizedBox(height: 6),
+                // Mini paleta de cores
+                Row(children: colors.map((c) {
+                  final hex = c.hex.replaceAll('#', '');
+                  final col = Color(int.parse('FF$hex', radix: 16));
+                  return Container(
+                    width: 16, height: 16, margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: col,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.grey200),
+                    ),
+                  );
+                }).toList()),
+              ],
+            ),
+          ),
+          if (price != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text('a partir de', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                Text('R\$ ${price.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14)),
+                const Text('/m²', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }
