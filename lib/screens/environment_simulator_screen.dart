@@ -8,21 +8,38 @@ class EnvironmentSimulatorScreen extends StatefulWidget {
   final ProductCategory? preselectedCategory;
   const EnvironmentSimulatorScreen({super.key, this.preselectedCategory});
   @override
-  State<EnvironmentSimulatorScreen> createState() => _EnvironmentSimulatorScreenState();
+  State<EnvironmentSimulatorScreen> createState() =>
+      _EnvironmentSimulatorScreenState();
 }
 
-class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen> {
+class _EnvironmentSimulatorScreenState
+    extends State<EnvironmentSimulatorScreen> {
   Uint8List? _imageBytes;
-  String? _demoImageUrl;       // URL direto para ambientes demo (sem CORS)
+  String? _demoImageUrl;
   ProductCategory _category = ProductCategory.rolo;
-  double _blindOpacity = 0.85;
-  double _blindPosition = 0.0;
+
+  // Controles de posicionamento
+  double _blindOpacity = 0.88;
+  double _blindPosition = 0.85; // 0=totalmente fechada, 1=totalmente aberta
   double _lightControl = 0.5;
+
+  // Dimensões da janela em metros (para escala proporcional)
+  double _windowWidth = 1.20;
+  double _windowHeight = 1.50;
+
+  // Posição da janela na imagem (offset relativo 0..1)
+  double _winOffsetX = 0.20; // posição horizontal da janela (0=esquerda, 1=direita)
+  double _winOffsetY = 0.15; // posição vertical da janela (0=topo, 1=fundo)
+
   bool _showControls = true;
+  bool _showSizePanel = false;
+  int _selectedColorIdx = 0;
   final ImagePicker _picker = ImagePicker();
 
-  static const List<String> blindColors = ['#2C2C2C', '#F5F0E8', '#4A4A4A', '#C8B99A', '#8B7355', '#E8E0D5', '#1B2A4A', '#6B7C8F'];
-  int _selectedColorIdx = 0;
+  static const List<String> blindColors = [
+    '#2C2C2C', '#F5F0E8', '#4A4A4A', '#C8B99A',
+    '#8B7355', '#E8E0D5', '#1B2A4A', '#6B7C8F',
+  ];
 
   Color get _currentBlindColor {
     final hex = blindColors[_selectedColorIdx];
@@ -32,9 +49,38 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
   @override
   void initState() {
     super.initState();
-    if (widget.preselectedCategory != null) _category = widget.preselectedCategory!;
-
+    if (widget.preselectedCategory != null) {
+      _category = widget.preselectedCategory!;
+    }
   }
+
+  // ── Lista de ambientes demo ─────────────────────────────────
+  static const List<Map<String, String>> _demoRooms = [
+    {
+      'url': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1000&q=80',
+      'label': 'Sala de Estar',
+    },
+    {
+      'url': 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1000&q=80',
+      'label': 'Home Office',
+    },
+    {
+      'url': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1000&q=80',
+      'label': 'Quarto',
+    },
+    {
+      'url': 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=1000&q=80',
+      'label': 'Sala Moderna',
+    },
+    {
+      'url': 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1000&q=80',
+      'label': 'Escritório',
+    },
+    {
+      'url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1000&q=80',
+      'label': 'Varanda',
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -42,64 +88,62 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Simular no Ambiente', style: TextStyle(color: Colors.white)),
+        title: const Text('Simular no Ambiente',
+            style: TextStyle(color: Colors.white)),
         actions: [
-          if (_imageBytes != null)
-            IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: _share),
           if (_imageBytes != null || _demoImageUrl != null)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white70),
+              icon: const Icon(Icons.swap_horiz, color: Colors.white70),
               tooltip: 'Trocar ambiente',
-              onPressed: () => setState(() { _imageBytes = null; _demoImageUrl = null; }),
+              onPressed: () => setState(
+                  () {_imageBytes = null; _demoImageUrl = null;}),
             ),
           IconButton(
-            icon: Icon(_showControls ? Icons.visibility_off : Icons.tune, color: Colors.white),
-            onPressed: () => setState(() => _showControls = !_showControls),
+            icon: Icon(
+                _showControls ? Icons.visibility_off : Icons.tune,
+                color: Colors.white),
+            tooltip: _showControls ? 'Ocultar controles' : 'Mostrar controles',
+            onPressed: () =>
+                setState(() => _showControls = !_showControls),
           ),
         ],
       ),
       body: Column(
         children: [
-          Expanded(child: (_imageBytes == null && _demoImageUrl == null)
-              ? _buildPickerUI()
-              : _buildSimulator()),
-          if (_showControls && (_imageBytes != null || _demoImageUrl != null)) _buildControlPanel(),
+          Expanded(
+            child: (_imageBytes == null && _demoImageUrl == null)
+                ? _buildPickerUI()
+                : _buildSimulator(),
+          ),
+          if (_showControls &&
+              (_imageBytes != null || _demoImageUrl != null))
+            _buildControlPanel(),
         ],
       ),
     );
   }
 
-  // Ambientes de demonstração para preview web
-  static const List<Map<String, String>> _demoRooms = [
-    {'url': 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80', 'label': 'Sala de Estar'},
-    {'url': 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=80', 'label': 'Home Office'},
-    {'url': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80', 'label': 'Quarto'},
-    {'url': 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=800&q=80', 'label': 'Sala Moderna'},
-    {'url': 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80', 'label': 'Escritório'},
-    {'url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80', 'label': 'Varanda'},
-  ];
-
-  bool _loadingDemo = false;
-
-  Future<void> _loadDemoRoom(String url) async {
-    // Usa Image.network direto — sem CORS, funciona no web
-    setState(() { _demoImageUrl = url; _loadingDemo = false; });
-  }
-
+  // ── Tela de seleção de ambiente ──────────────────────────────
   Widget _buildPickerUI() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
           const SizedBox(height: 12),
-          const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 48),
+          const Icon(Icons.camera_alt_outlined,
+              color: Colors.white, size: 48),
           const SizedBox(height: 12),
           const Text('Simule a persiana no seu ambiente',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
               textAlign: TextAlign.center),
           const SizedBox(height: 6),
-          const Text('Escolha um ambiente abaixo ou envie sua própria foto',
-              style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
+          const Text(
+              'Escolha um ambiente abaixo ou envie sua própria foto',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+              textAlign: TextAlign.center),
           const SizedBox(height: 20),
           // Botões de upload
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -108,216 +152,437 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
               icon: const Icon(Icons.photo_library, size: 18),
               label: const Text('Minha Foto'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
               ),
             ),
             const SizedBox(width: 12),
             OutlinedButton.icon(
               onPressed: () => _pickImage(ImageSource.camera),
-              icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white70),
-              label: const Text('Câmera', style: TextStyle(color: Colors.white70)),
+              icon: const Icon(Icons.camera_alt,
+                  size: 18, color: Colors.white70),
+              label: const Text('Câmera',
+                  style: TextStyle(color: Colors.white70)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white38),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
               ),
             ),
           ]),
           const SizedBox(height: 24),
-          // Divisor
           Row(children: [
-            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+            Expanded(
+                child: Divider(
+                    color: Colors.white.withValues(alpha: 0.3))),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('ou escolha um ambiente de demonstração',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+              child: Text('ou ambiente de demonstração',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12)),
             ),
-            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+            Expanded(
+                child: Divider(
+                    color: Colors.white.withValues(alpha: 0.3))),
           ]),
           const SizedBox(height: 16),
-          // Grid de ambientes demo
-          if (_loadingDemo)
-            const CircularProgressIndicator(color: Colors.white)
-          else
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10, mainAxisSpacing: 10,
-              childAspectRatio: 1.5,
-              children: _demoRooms.map((r) => GestureDetector(
-                onTap: () => _loadDemoRoom(r['url']!),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(fit: StackFit.expand, children: [
-                    Image.network(r['url']!, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade800,
-                            child: const Icon(Icons.image, color: Colors.white38, size: 32))),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.65)],
-                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                        ),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.5,
+            children: _demoRooms
+                .map((r) => GestureDetector(
+                      onTap: () => setState(
+                          () => _demoImageUrl = r['url']),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                r['url']!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    Container(
+                                        color: Colors.grey.shade800,
+                                        child: const Icon(Icons.image,
+                                            color: Colors.white38,
+                                            size: 32)),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.65)
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                  bottom: 8,
+                                  left: 0,
+                                  right: 0,
+                                  child: Text(r['label']!,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center)),
+                            ]),
                       ),
-                    ),
-                    Positioned(bottom: 8, left: 0, right: 0,
-                      child: Text(r['label']!,
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center)),
-                    Positioned(top: 6, right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(Icons.touch_app_outlined, color: Colors.white, size: 13),
-                      )),
-                  ]),
-                ),
-              )).toList(),
-            ),
+                    ))
+                .toList(),
+          ),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
 
+  // ── Simulador com persiana sobreposta ────────────────────────
   Widget _buildSimulator() {
-    // Imagem de fundo: pode ser foto local (bytes) ou URL de demo
-    Widget bgImage = _imageBytes != null
-        ? Image.memory(_imageBytes!, fit: BoxFit.contain)
-        : Image.network(
-            _demoImageUrl!,
-            fit: BoxFit.contain,
-            loadingBuilder: (_, child, progress) => progress == null
-                ? child
-                : const Center(child: CircularProgressIndicator(color: Colors.white)),
-            errorBuilder: (_, __, ___) => const Center(
-                child: Text('Erro ao carregar imagem', style: TextStyle(color: Colors.white))),
-          );
+    return LayoutBuilder(builder: (ctx, constraints) {
+      final W = constraints.maxWidth;
+      final H = constraints.maxHeight;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        bgImage,
-        Positioned(
-          top: 0,
-          left: MediaQuery.of(context).size.width * 0.1,
-          right: MediaQuery.of(context).size.width * 0.1,
-          height: MediaQuery.of(context).size.height * 0.55 * (0.3 + _blindPosition * 0.7),
-          child: Opacity(
-            opacity: _blindOpacity,
-            child: _buildBlindVisual(),
+      // Relação largura/altura da janela definida pelo usuário
+      final aspectRatio = _windowWidth / _windowHeight;
+
+      // Calcula as dimensões da persiana em pixels proporcionais à tela
+      // A persiana ocupa no máx 60% da largura ou 70% da altura da área
+      double blindW = W * 0.55;
+      double blindH = blindW / aspectRatio;
+      if (blindH > H * 0.65) {
+        blindH = H * 0.65;
+        blindW = blindH * aspectRatio;
+      }
+
+      // Centraliza horizontalmente + posição vertical ajustável
+      final blindLeft = (W - blindW) / 2 + (_winOffsetX - 0.5) * W * 0.5;
+      final blindTop = H * 0.05 + _winOffsetY * H * 0.4;
+
+      // Altura visível da persiana conforme posição (aberta/fechada)
+      final visibleHeight = blindH * (1 - _blindPosition * 0.85);
+
+      Widget bgImage = _imageBytes != null
+          ? Image.memory(_imageBytes!,
+              fit: BoxFit.cover, width: W, height: H)
+          : Image.network(
+              _demoImageUrl!,
+              fit: BoxFit.cover,
+              width: W,
+              height: H,
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : const Center(
+                      child: CircularProgressIndicator(
+                          color: Colors.white)),
+              errorBuilder: (_, __, ___) => const Center(
+                  child: Text('Erro ao carregar imagem',
+                      style: TextStyle(color: Colors.white))),
+            );
+
+      return Stack(
+        children: [
+          // Fundo: foto do ambiente
+          Positioned.fill(child: bgImage),
+
+          // Overlay de luminosidade
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: Colors.black.withValues(alpha: (1 - _lightControl) * 0.45),
+              ),
+            ),
           ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
+
+          // Persiana centralizada e proporcional
+          Positioned(
+            left: blindLeft,
+            top: blindTop,
+            width: blindW,
+            height: visibleHeight,
+            child: Opacity(
+              opacity: _blindOpacity,
+              child: _BlindWidget(
+                category: _category,
+                color: _currentBlindColor,
+                width: blindW,
+                height: visibleHeight,
+              ),
+            ),
+          ),
+
+          // Informações de medida sobrepostas
+          Positioned(
+            left: blindLeft,
+            top: blindTop + visibleHeight + 4,
+            width: blindW,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${_windowWidth.toStringAsFixed(2)}m × ${_windowHeight.toStringAsFixed(2)}m',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
+
+          // Tag do modelo
+          Positioned(
+            left: blindLeft,
+            top: blindTop,
             child: Container(
-              color: Colors.white.withValues(alpha: (1 - _lightControl) * 0.4),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.9),
+                borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    bottomRight: Radius.circular(8)),
+              ),
+              child: Text(
+                _category.shortName,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
+              ),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 16, right: 16,
-          child: Column(children: [
-            FloatingActionButton.small(
-              heroTag: 'change_img',
-              onPressed: () => setState(() { _imageBytes = null; _demoImageUrl = null; }),
-              backgroundColor: Colors.black54,
-              tooltip: 'Trocar ambiente',
-              child: const Icon(Icons.swap_horiz, color: Colors.white),
+
+          // FABs
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Column(children: [
+              FloatingActionButton.small(
+                heroTag: 'size_fab',
+                onPressed: () => setState(
+                    () => _showSizePanel = !_showSizePanel),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.9),
+                tooltip: 'Ajustar medidas da janela',
+                child: const Icon(Icons.straighten, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'gallery_fab',
+                onPressed: () => _pickImage(ImageSource.gallery),
+                backgroundColor: Colors.black54,
+                tooltip: 'Minha foto',
+                child: const Icon(Icons.photo_library, color: Colors.white),
+              ),
+            ]),
+          ),
+
+          // Painel de ajuste das medidas da janela
+          if (_showSizePanel)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _buildSizePanel(),
             ),
-            const SizedBox(height: 8),
-            FloatingActionButton.small(
-              heroTag: 'gallery',
-              onPressed: () => _pickImage(ImageSource.gallery),
-              backgroundColor: Colors.black54,
-              tooltip: 'Minha foto',
-              child: const Icon(Icons.photo_library, color: Colors.white),
+        ],
+      );
+    });
+  }
+
+  // ── Painel de medidas da janela ──────────────────────────────
+  Widget _buildSizePanel() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.9),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.straighten, color: Colors.white70, size: 16),
+              const SizedBox(width: 8),
+              const Text('Medidas da Janela',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                onPressed: () =>
+                    setState(() => _showSizePanel = false),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Largura: ${_windowWidth.toStringAsFixed(2)} m',
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 11),
+                  ),
+                  Slider(
+                    value: _windowWidth,
+                    min: 0.40,
+                    max: 2.89,
+                    divisions: 50,
+                    activeColor: AppColors.primary,
+                    inactiveColor: Colors.white24,
+                    onChanged: (v) =>
+                        setState(() => _windowWidth = v),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Altura: ${_windowHeight.toStringAsFixed(2)} m',
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 11),
+                  ),
+                  Slider(
+                    value: _windowHeight,
+                    min: 0.40,
+                    max: 3.00,
+                    divisions: 52,
+                    activeColor: AppColors.primary,
+                    inactiveColor: Colors.white24,
+                    onChanged: (v) =>
+                        setState(() => _windowHeight = v),
+                  ),
+                ],
+              ),
             ),
           ]),
-        ),
-      ],
+          // Posição horizontal na imagem
+          Text(
+            'Posição horizontal: ${((_winOffsetX - 0.5) * 100).toStringAsFixed(0)}%',
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+          Slider(
+            value: _winOffsetX,
+            min: 0.0,
+            max: 1.0,
+            activeColor: Colors.orange,
+            inactiveColor: Colors.white24,
+            onChanged: (v) => setState(() => _winOffsetX = v),
+          ),
+          Text(
+            'Posição vertical: ${(_winOffsetY * 100).toStringAsFixed(0)}%',
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+          Slider(
+            value: _winOffsetY,
+            min: 0.0,
+            max: 0.8,
+            activeColor: Colors.orange,
+            inactiveColor: Colors.white24,
+            onChanged: (v) => setState(() => _winOffsetY = v),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildBlindVisual() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _currentBlindColor.withValues(alpha: 0.9),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8)],
-      ),
-      child: CustomPaint(
-        painter: _BlindPatternPainter(category: _category, color: _currentBlindColor),
-      ),
-    );
-  }
-
+  // ── Painel de controles ──────────────────────────────────────
   Widget _buildControlPanel() {
-    // ignore: unused_local_variable
-    final fabrics = PricingModel.getFabricsForCategory(_category);
     return Container(
       color: Colors.black87,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Category selector
+          // Seletor de modelo
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: ProductCategory.values.map((cat) {
                 final isSelected = _category == cat;
                 return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _category = cat;
-                    });
-                  },
+                  onTap: () => setState(() => _category = cat),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.1),
+                      color: isSelected
+                          ? AppColors.primary
+                          : Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Text(cat.shortName, style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                    child: Text(cat.shortName,
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal)),
                   ),
                 );
               }).toList(),
             ),
           ),
-          const SizedBox(height: 12),
-          // Color swatches
-          Row(
-            children: [
-              const Text('Cor:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(width: 8),
-              ...List.generate(blindColors.length, (i) {
-                final color = Color(int.parse('FF${blindColors[i].replaceAll('#', '')}', radix: 16));
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedColorIdx = i),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _selectedColorIdx == i ? Colors.white : Colors.transparent, width: 2),
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
           const SizedBox(height: 10),
-          // Controls
+          // Cores
+          Row(children: [
+            const Text('Cor:',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(width: 8),
+            ...List.generate(blindColors.length, (i) {
+              final c = Color(int.parse(
+                  'FF${blindColors[i].replaceAll('#', '')}',
+                  radix: 16));
+              return GestureDetector(
+                onTap: () =>
+                    setState(() => _selectedColorIdx = i),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: _selectedColorIdx == i
+                            ? Colors.white
+                            : Colors.transparent,
+                        width: 2),
+                  ),
+                ),
+              );
+            }),
+          ]),
+          const SizedBox(height: 6),
+          // Sliders
           _SliderControl(
             icon: Icons.wb_sunny_outlined,
-            label: 'Luminosidade',
+            label: 'Luz',
             value: _lightControl,
             min: 0,
             max: 1,
@@ -325,7 +590,7 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
           ),
           _SliderControl(
             icon: Icons.unfold_more,
-            label: 'Posição',
+            label: 'Abertura',
             value: _blindPosition,
             min: 0,
             max: 1,
@@ -349,45 +614,78 @@ class _EnvironmentSimulatorScreenState extends State<EnvironmentSimulatorScreen>
       final picked = await _picker.pickImage(
         source: source,
         imageQuality: 85,
-        maxWidth: 1080,
+        maxWidth: 1200,
       );
       if (picked != null) {
         final bytes = await picked.readAsBytes();
-        setState(() => _imageBytes = bytes);
+        setState(() {
+          _imageBytes = bytes;
+          _demoImageUrl = null;
+        });
       }
     } catch (e) {
-      // No web, image_picker usa <input type="file"> automaticamente
-      // Se falhar, mostrar instrução clara
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Clique em "Galeria" e selecione uma foto da janela do seu computador.'),
+          const SnackBar(
+            content: Text(
+                'Selecione uma foto da janela do seu ambiente.'),
             backgroundColor: AppColors.primary,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Entendi',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
+            duration: Duration(seconds: 3),
           ),
         );
       }
     }
   }
+}
 
-  void _share() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Simulação salva! Compartilhando...')),
+// ── Widget visual da persiana ────────────────────────────────
+class _BlindWidget extends StatelessWidget {
+  final ProductCategory category;
+  final Color color;
+  final double width;
+  final double height;
+  const _BlindWidget(
+      {required this.category,
+      required this.color,
+      required this.width,
+      required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.92),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(2, 4)),
+          ],
+        ),
+        child: CustomPaint(
+          painter: _BlindPatternPainter(category: category, color: color),
+        ),
+      ),
     );
   }
 }
 
+// ── Slider de controle ───────────────────────────────────────
 class _SliderControl extends StatelessWidget {
   final IconData icon;
   final String label;
   final double value, min, max;
   final ValueChanged<double> onChanged;
-  const _SliderControl({required this.icon, required this.label, required this.value, required this.min, required this.max, required this.onChanged});
+  const _SliderControl(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.min,
+      required this.max,
+      required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +693,11 @@ class _SliderControl extends StatelessWidget {
       children: [
         Icon(icon, color: Colors.white60, size: 16),
         const SizedBox(width: 6),
-        SizedBox(width: 70, child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11))),
+        SizedBox(
+            width: 60,
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white60, fontSize: 11))),
         Expanded(
           child: Slider(
             value: value,
@@ -411,6 +713,7 @@ class _SliderControl extends StatelessWidget {
   }
 }
 
+// ── Padrão de textura por categoria ─────────────────────────
 class _BlindPatternPainter extends CustomPainter {
   final ProductCategory category;
   final Color color;
@@ -418,21 +721,97 @@ class _BlindPatternPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (category == ProductCategory.horizontal25mm) {
-      final paint = Paint()..color = color.withValues(alpha: 0.3)..strokeWidth = 1;
-      for (var y = 0.0; y < size.height; y += 8) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-      }
-    } else if (category == ProductCategory.doubleVision) {
-      final paint1 = Paint()..color = color..style = PaintingStyle.fill;
-      final paint2 = Paint()..color = color.withValues(alpha: 0.4)..style = PaintingStyle.fill;
-      for (var y = 0.0; y < size.height; y += 20) {
-        canvas.drawRect(Rect.fromLTWH(0, y, size.width, 10), paint1);
-        canvas.drawRect(Rect.fromLTWH(0, y + 10, size.width, 10), paint2);
-      }
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..strokeWidth = 0.8;
+
+    switch (category) {
+      case ProductCategory.horizontal25mm:
+        // Lâminas horizontais de alumínio
+        for (var y = 0.0; y < size.height; y += 10) {
+          canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+        }
+        final shadePaint = Paint()
+          ..color = Colors.black.withValues(alpha: 0.08)
+          ..style = PaintingStyle.fill;
+        for (var y = 0.0; y < size.height; y += 10) {
+          canvas.drawRect(
+              Rect.fromLTWH(0, y + 5, size.width, 5), shadePaint);
+        }
+        break;
+
+      case ProductCategory.doubleVision:
+        // Faixas alternadas translúcidas/opacas
+        final opacaPaint = Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+        final transPaint = Paint()
+          ..color = color.withValues(alpha: 0.35)
+          ..style = PaintingStyle.fill;
+        for (var y = 0.0; y < size.height; y += 22) {
+          canvas.drawRect(
+              Rect.fromLTWH(0, y, size.width, 11), opacaPaint);
+          canvas.drawRect(
+              Rect.fromLTWH(0, y + 11, size.width, 11), transPaint);
+        }
+        break;
+
+      case ProductCategory.romana:
+        // Dobras horizontais da persiana romana
+        final foldPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.1)
+          ..style = PaintingStyle.fill;
+        final shadowPaint = Paint()
+          ..color = Colors.black.withValues(alpha: 0.15)
+          ..style = PaintingStyle.fill;
+        final foldSize = size.height / 4;
+        for (var i = 0; i < 4; i++) {
+          final y = i * foldSize;
+          canvas.drawRect(
+              Rect.fromLTWH(0, y, size.width, foldSize * 0.6), foldPaint);
+          canvas.drawRect(
+              Rect.fromLTWH(0, y + foldSize * 0.6, size.width, foldSize * 0.4),
+              shadowPaint);
+        }
+        break;
+
+      case ProductCategory.painel:
+        // Painéis verticais
+        final panelCount = (size.width / 80).floor().clamp(2, 6);
+        final panelW = size.width / panelCount;
+        final panelPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.08)
+          ..style = PaintingStyle.fill;
+        for (var i = 0; i < panelCount; i++) {
+          if (i.isEven) {
+            canvas.drawRect(
+                Rect.fromLTWH(i * panelW, 0, panelW, size.height),
+                panelPaint);
+          }
+          canvas.drawLine(Offset(i * panelW, 0),
+              Offset(i * panelW, size.height), linePaint);
+        }
+        break;
+
+      case ProductCategory.rolo:
+      default:
+        // Rolo: superfície lisa com gradiente sutil
+        final gradientPaint = Paint()
+          ..shader = LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.08),
+              Colors.black.withValues(alpha: 0.12),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+        canvas.drawRect(
+            Rect.fromLTWH(0, 0, size.width, size.height), gradientPaint);
+        break;
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BlindPatternPainter old) =>
+      old.category != category || old.color != color;
 }

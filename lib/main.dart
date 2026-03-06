@@ -32,6 +32,7 @@ class ControlPersianaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SimulatorProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => ProductDetailsProvider()),
       ],
       child: MaterialApp(
         title: 'Control Persianas',
@@ -54,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
-  bool _showAdminButton = false;
+  bool _showAdminButton = false; // mantido para compatibilidade de estado
 
   @override
   void initState() {
@@ -156,21 +157,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
 
-              // Botão Admin (canto superior direito)
-              if (_showAdminButton)
-                Positioned(
-                  top: 8,
-                  right: 16,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-                    ),
-                    child: const Text(
-                      'Admin',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
-                ),
+              // Botão Admin removido da splash — acesso pelo menu Conta
 
               // Rodapé
               Positioned(

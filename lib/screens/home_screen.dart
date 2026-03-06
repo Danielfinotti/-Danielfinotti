@@ -8,12 +8,13 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../widgets/common_widgets.dart';
 import 'simulator_screen.dart';
+import 'accessory_order_screen.dart';
 import 'categories_screen.dart';
 import 'cart_screen.dart';
 import 'account_screen.dart';
-import 'environment_simulator_screen.dart' as env_sim;
 import 'educational_screen.dart';
 import '../services/services.dart';
+import 'admin_panel_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -25,13 +26,23 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const CategoriesScreen(),
-    const SimulatorScreen(),
-    const CartScreen(),
-    const AccountScreen(),
-  ];
+  void switchToTab(int index) {
+    setState(() => _currentIndex = index);
+  }
+
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const HomeScreen(),
+      const CategoriesScreen(),
+      const SimulatorScreen(),
+      const CartScreen(),
+      const AccountScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +151,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       actions: [
         IconButton(icon: const Icon(Icons.search, color: Colors.white), onPressed: () => _showSearch()),
-        IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
+        // Botão Admin — visível apenas para o administrador logado
+        if (context.watch<UserProvider>().isAdmin)
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings_outlined, color: Colors.white),
+            tooltip: 'Painel Admin',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminPanelScreen())),
+          ),
         const SizedBox(width: 4),
       ],
     );
@@ -158,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _HeroBannerItem(
             title: 'Persianas\nSob Medida',
-            subtitle: 'Simule no seu ambiente',
+            subtitle: 'Calcule online, receba em casa',
             ctaLabel: 'Simular Agora',
             gradient: const LinearGradient(colors: [Color(0xFF1565C0), Color(0xFF0D47A1)]),
             imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600',
@@ -188,9 +205,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActions() {
     final actions = [
       {'icon': Icons.straighten, 'label': 'Simular\nMedidas', 'color': AppColors.primary},
-      {'icon': Icons.camera_alt, 'label': 'Foto do\nAmbiente', 'color': const Color(0xFF00796B)},
+      {'icon': Icons.handyman_outlined, 'label': 'Pedir\nAcessório', 'color': const Color(0xFF6A1B9A)},
       {'icon': Icons.local_shipping_outlined, 'label': 'Calcular\nFrete', 'color': const Color(0xFFE65100)},
-      {'icon': Icons.support_agent, 'label': 'Falar com\nEspecialista', 'color': const Color(0xFF6A1B9A)},
+      {'icon': Icons.support_agent, 'label': 'Falar com\nEspecialista', 'color': const Color(0xFF00796B)},
     ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -229,8 +246,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleQuickAction(String label) {
     if (label.contains('Simular')) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const SimulatorScreen()));
-    } else if (label.contains('Foto')) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const env_sim.EnvironmentSimulatorScreen()));
+    } else if (label.contains('Acessório')) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const AccessoryOrderScreen()));
     } else if (label.contains('Frete')) {
       _showShippingCalculator();
     } else {
@@ -1111,83 +1128,13 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _heroIndex = 0;
 
-  // Descrições longas por categoria
-  static const Map<ProductCategory, String> _longDescriptions = {
-    ProductCategory.rolo:
-        'A Persiana Rolô é a escolha mais popular para ambientes modernos e práticos. '
-        'Com acionamento por corrente ou motor elétrico, ela permite controle total da luminosidade '
-        'com um único movimento. O tecido é enrolado em um tubo de alumínio com acabamento impecável, '
-        'sem acúmulo de poeira. Ideal para escritórios, salas, quartos e cozinhas. '
-        'Disponível em blackout, screen solar (1%, 3% e 5%) e translúcido.',
-    ProductCategory.romana:
-        'A Persiana Romana é sinônimo de elegância e sofisticação. Com dobras harmoniosas que '
-        'se formam ao abrir, ela confere charme e personalidade ao ambiente. '
-        'O tecido estruturado cai em pregas perfeitas, valorizando janelas e porta-janelas. '
-        'Indicada para salas de estar, quartos e ambientes que pedem um toque clássico. '
-        'Fabricamos com varetas de alumínio internas para manter o formato impecável.',
-    ProductCategory.doubleVision:
-        'A Double Vision (ou Zebra) combina duas camadas de tecido translúcida e opaca '
-        'que deslizam uma sobre a outra, permitindo regular a entrada de luz com precisão. '
-        'É a persiana mais versátil do mercado: filtra a luz do dia sem escurecer totalmente '
-        'ou bloqueia completamente quando necessário. '
-        'Design clean e moderno, perfeito para salas e áreas de trabalho.',
-    ProductCategory.painel:
-        'A Cortina Painel é a solução ideal para grandes vãos, porta-sacadas e janelas panorâmicas. '
-        'Os painéis deslizam lateralmente em trilho de alumínio de forma suave e silenciosa. '
-        'Permite combinar diferentes tecidos e cores no mesmo trilho, criando efeito decorativo único. '
-        'Excelente para substituir cortinas tradicionais com muito mais praticidade.',
-    ProductCategory.horizontal25mm:
-        'A Persiana Horizontal 25mm é fabricada em lâminas de alumínio de alta resistência, '
-        'perfeita para ambientes com alta umidade como cozinhas e banheiros. '
-        'As lâminas giram 180° para controle total de privacidade e luminosidade. '
-        'Muito durável, fácil de limpar e com vida útil superior a 10 anos. '
-        'Disponível na versão manual (cordão) e motorizada.',
-  };
-
-  // Vantagens rápidas por categoria
-  static const Map<ProductCategory, List<String>> _advantages = {
-    ProductCategory.rolo: [
-      '✓ Acionamento por corrente ou motor',
-      '✓ Design clean e minimalista',
-      '✓ Fácil limpeza com pano úmido',
-      '✓ Disponível em blackout e screen solar',
-      '✓ Travamento automático em qualquer posição',
-    ],
-    ProductCategory.romana: [
-      '✓ Dobras harmoniosas e elegantes',
-      '✓ Varetas internas de alumínio',
-      '✓ Tecido estruturado de alta qualidade',
-      '✓ Acionamento por corrente',
-      '✓ Perfeita para salas e quartos',
-    ],
-    ProductCategory.doubleVision: [
-      '✓ Dupla camada translúcida + opaca',
-      '✓ Regulagem precisa de luminosidade',
-      '✓ Sem visibilidade externa à noite',
-      '✓ Mecanismo de travamento suave',
-      '✓ Limpeza prática sem desmontar',
-    ],
-    ProductCategory.painel: [
-      '✓ Ideal para grandes vãos',
-      '✓ Trilho de alumínio silencioso',
-      '✓ Combina diferentes tecidos',
-      '✓ Substituição de painéis individual',
-      '✓ Moderno e decorativo',
-    ],
-    ProductCategory.horizontal25mm: [
-      '✓ Lâminas de alumínio 25mm',
-      '✓ Resistente à umidade e vapor',
-      '✓ Giro 180° de privacidade total',
-      '✓ Fácil limpeza com pano',
-      '✓ Vida útil superior a 10 anos',
-    ],
-  };
-
   @override
   Widget build(BuildContext context) {
     final cat = widget.category;
     final images = cat.galleryImages;
     final fabrics = PricingModel.getFabricsForCategory(cat);
+    // Lê textos do provider (editável pelo Painel Admin)
+    final detailsProv = context.watch<ProductDetailsProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1274,7 +1221,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Text(cat.displayName,
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(cat.categoryDescription,
+                  Text(detailsProv.getTagline(cat),
                       style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
 
                   const SizedBox(height: 16),
@@ -1284,7 +1231,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
-                    _longDescriptions[cat] ?? cat.categoryDescription,
+                    detailsProv.getDescription(cat),
                     style: const TextStyle(fontSize: 13.5, height: 1.55, color: AppColors.textSecondary),
                   ),
 
@@ -1293,7 +1240,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Vantagens
                   Text('Vantagens', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  ...(_advantages[cat] ?? []).map((adv) => Padding(
+                  ...detailsProv.getAdvantagesList(cat).map((adv) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Text(adv, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   )),

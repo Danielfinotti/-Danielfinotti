@@ -25,6 +25,83 @@ class AppConfig {
 }
 
 // ============================================================
+// AUTH SERVICE
+// ============================================================
+class AuthService {
+  // E-mail do administrador — acesso exclusivo ao painel admin
+  static const String adminEmail = 'finottiborges@hotmail.com';
+
+  // Usuários cadastrados (persistência em memória para esta versão)
+  // Chave: email → {name, passwordHash}
+  static final Map<String, Map<String, String>> _users = {};
+
+  /// Hash simples (não criptográfico) apenas para não salvar senha em texto puro
+  static String _hash(String password) {
+    int h = 5381;
+    for (final c in password.codeUnits) {
+      h = ((h << 5) + h) + c;
+    }
+    return h.abs().toRadixString(16);
+  }
+
+  /// Cadastra novo usuário. Retorna null se ok, ou mensagem de erro.
+  static String? register({
+    required String name,
+    required String email,
+    required String password,
+  }) {
+    final e = email.trim().toLowerCase();
+    if (e.isEmpty || !e.contains('@')) return 'E-mail inválido.';
+    if (name.trim().length < 2) return 'Informe seu nome completo.';
+    if (password.length < 6) return 'A senha deve ter ao menos 6 caracteres.';
+    if (_users.containsKey(e)) return 'E-mail já cadastrado. Faça login.';
+    _users[e] = {'name': name.trim(), 'passwordHash': _hash(password)};
+    return null;
+  }
+
+  /// Faz login. Retorna UserModel em caso de sucesso, ou lança exceção.
+  static UserModel login({required String email, required String password}) {
+    final e = email.trim().toLowerCase();
+    if (e.isEmpty) throw Exception('Informe seu e-mail.');
+    if (password.isEmpty) throw Exception('Informe sua senha.');
+
+    // Admin não precisa estar cadastrado na lista — login direto
+    if (e == adminEmail.toLowerCase()) {
+      // Para o admin, qualquer senha cadastrada é aceita; se não cadastrado,
+      // aceita qualquer senha na primeira vez e registra automaticamente.
+      if (!_users.containsKey(e)) {
+        _users[e] = {'name': 'Administrador', 'passwordHash': _hash(password)};
+      }
+      if (_users[e]!['passwordHash'] != _hash(password)) {
+        throw Exception('Senha incorreta.');
+      }
+      return UserModel(
+        id: 'admin',
+        name: 'Administrador',
+        email: e,
+        phone: '',
+      );
+    }
+
+    // Cliente comum
+    if (!_users.containsKey(e)) throw Exception('E-mail não cadastrado.');
+    if (_users[e]!['passwordHash'] != _hash(password)) {
+      throw Exception('Senha incorreta.');
+    }
+    return UserModel(
+      id: e.hashCode.abs().toString(),
+      name: _users[e]!['name'] ?? 'Cliente',
+      email: e,
+      phone: '',
+    );
+  }
+
+  /// Verifica se um e-mail é admin
+  static bool isAdmin(String email) =>
+      email.trim().toLowerCase() == adminEmail.toLowerCase();
+}
+
+// ============================================================
 // CEP SERVICE
 // ============================================================
 class CepService {
@@ -57,7 +134,6 @@ class ShippingService {
       String destCep, double weightKg) async {
     final cleanDest = destCep.replaceAll(RegExp(r'\D'), '');
     if (cleanDest.length != 8) return _fallback();
-
     try {
       final body = jsonEncode({
         'from': {'postal_code': AppConfig.originCep},
@@ -116,31 +192,69 @@ class ShippingService {
       if (kDebugMode) debugPrint('ShippingService error: $e');
     }
 
-    // Fallback com valores estimados
-    return _fallback();
+    // Fallback com valores estimados por região
+    return _fallback(cleanDest);
   }
 
-  static List<ShippingOption> _fallback() {
+  static List<ShippingOption> _fallback([String destCep = '']) {
+    // Calcula estimativa por região com base no DDD/CEP para variar os valores
+    double basePac = 39.90;
+    double baseSedex = 69.90;
+    int pacMin = 5, pacMax = 10, sedexMin = 2, sedexMax = 4;
+
+    if (destCep.length >= 2) {
+      final prefix = int.tryParse(destCep.substring(0, 2)) ?? 0;
+      // Norte (68-69) e Nordeste (40-65): mais longe, mais caro e demora mais
+      if (prefix >= 40 && prefix <= 65) {
+        basePac = 54.90; baseSedex = 89.90; pacMin = 7; pacMax = 14; sedexMin = 3; sedexMax = 6;
+      } else if (prefix >= 66 && prefix <= 69) {
+        basePac = 64.90; baseSedex = 109.90; pacMin = 10; pacMax = 18; sedexMin = 4; sedexMax = 8;
+      }
+      // Centro-Oeste (70-79): intermediário
+      else if (prefix >= 70 && prefix <= 79) {
+        basePac = 44.90; baseSedex = 74.90; pacMin = 5; pacMax = 10; sedexMin = 2; sedexMax = 4;
+      }
+      // Sul (80-99): próximo ao SP, mais barato
+      else if (prefix >= 80 && prefix <= 99) {
+        basePac = 36.90; baseSedex = 62.90; pacMin = 4; pacMax = 8; sedexMin = 2; sedexMax = 3;
+      }
+      // SP/RJ (01-29): mais barato
+      else if (prefix <= 29) {
+        basePac = 29.90; baseSedex = 49.90; pacMin = 3; pacMax = 7; sedexMin = 1; sedexMax = 3;
+      }
+    }
+
+    // Transportadora econômica sempre um pouco mais barata que PAC
+    final baseTransp = (basePac * 0.85).roundToDouble();
+
     return [
+      ShippingOption(
+        name: 'Transportadora Econômica',
+        carrier: 'Jadlog',
+        price: baseTransp,
+        minDays: pacMin + 2,
+        maxDays: pacMax + 3,
+        service: 'jadlog',
+      ),
       ShippingOption(
         name: 'PAC (Correios)',
         carrier: 'Correios',
-        price: 39.90,
-        minDays: 5,
-        maxDays: 10,
+        price: basePac,
+        minDays: pacMin,
+        maxDays: pacMax,
         service: 'PAC',
       ),
       ShippingOption(
         name: 'SEDEX (Correios)',
         carrier: 'Correios',
-        price: 69.90,
-        minDays: 2,
-        maxDays: 4,
+        price: baseSedex,
+        minDays: sedexMin,
+        maxDays: sedexMax,
         service: 'SEDEX',
       ),
     ];
   }
-}
+} // end ShippingService
 
 // ============================================================
 // MERCADO PAGO SERVICE — Integração real

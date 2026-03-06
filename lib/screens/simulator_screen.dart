@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
-import '../widgets/common_widgets.dart';
 import 'cart_screen.dart';
 
+// ============================================================
+// SIMULADOR DE MEDIDAS — 6 passos + Resumo
+// Passo 1: Modelo | 2: Tecido | 3: Cor | 4: Instalação
+// Passo 5: Medidas | 6: Acessórios | Resumo Final
+// ============================================================
 class SimulatorScreen extends StatefulWidget {
   const SimulatorScreen({super.key});
   @override
@@ -16,12 +21,13 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
   final PageController _pageController = PageController();
 
   final List<String> _stepTitles = [
-    'Escolha o Ambiente',
     'Modelo de Persiana',
-    'Tecido e Cor',
+    'Tipo de Tecido',
+    'Cor do Tecido',
     'Tipo de Instalação',
-    'Insira as Medidas',
+    'Medidas',
     'Acessórios',
+    'Lado do Comando',
     'Resumo e Preço',
   ];
 
@@ -31,34 +37,46 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     super.dispose();
   }
 
+  void _goNext() {
+    final sim = context.read<SimulatorProvider>();
+    final step = sim.currentStep;
+    // Validações por passo
+    if (step == 0 && sim.config.fabric == null) {
+      // tecido ainda não escolhido — não bloqueia modelo
+    }
+    if (step < _stepTitles.length - 1) {
+      sim.nextStep();
+      _pageController.nextPage(
+          duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
+  void _goPrev() {
+    final sim = context.read<SimulatorProvider>();
+    if (sim.currentStep > 0) {
+      sim.prevStep();
+      _pageController.previousPage(
+          duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sim = context.watch<SimulatorProvider>();
-    final step = sim.currentStep;
+    final step = sim.currentStep.clamp(0, _stepTitles.length - 1);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_stepTitles[step.clamp(0, _stepTitles.length - 1)]),
+        title: Text(_stepTitles[step]),
         leading: step > 0
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  sim.prevStep();
-                  _pageController.previousPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut);
-                },
-              )
-            : null,
+            ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: _goPrev)
+            : IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).maybePop()),
         actions: [
-          TextButton(
-            onPressed: () {
-              sim.reset();
-              _pageController.jumpToPage(0);
-            },
-            child: const Text('Reiniciar', style: TextStyle(color: Colors.white70, fontSize: 13)),
-          ),
+          // Botão rápido para o carrinho
+          _CartBadgeButton(),
         ],
       ),
       body: Column(
@@ -68,14 +86,15 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _StepAmbiente(onNext: () => _nextPage(sim)),
-                _StepModelo(onNext: () => _nextPage(sim)),
-                _StepTecido(onNext: () => _nextPage(sim)),
-                _StepInstalacao(onNext: () => _nextPage(sim)),
-                _StepMedidas(onNext: () => _nextPage(sim)),
-                _StepAcessorios(onNext: () => _nextPage(sim)),
-                _StepResumo(onAddToCart: _addToCart),
+              children: const [
+                _StepModelo(),
+                _StepTecido(),
+                _StepCor(),
+                _StepInstalacao(),
+                _StepMedidas(),
+                _StepAcessorios(),
+                _StepLadoComando(),
+                _StepResumo(),
               ],
             ),
           ),
@@ -85,164 +104,1305 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
   }
 
   Widget _buildProgressBar(int step) {
+    const total = 8;
+    final progress = (step + 1) / total;
     return Container(
       color: AppColors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
         children: [
           Row(
-            children: List.generate(_stepTitles.length, (i) {
-              final done = i < step;
-              final current = i == step;
-              return Expanded(
-                child: Row(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: done
-                            ? AppColors.success
-                            : current
-                                ? AppColors.primary
-                                : AppColors.grey200,
-                      ),
-                      child: Center(
-                        child: done
-                            ? const Icon(Icons.check, color: Colors.white, size: 14)
-                            : Text(
-                                '${i + 1}',
-                                style: TextStyle(
-                                  color: current ? Colors.white : AppColors.grey500,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                    if (i < _stepTitles.length - 1)
-                      Expanded(
-                        child: Container(
-                          height: 2,
-                          color: done ? AppColors.success : AppColors.grey200,
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Passo ${step + 1} de $total',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text('${(progress * 100).round()}% concluído',
+                  style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+            ],
           ),
           const SizedBox(height: 6),
-          Text(
-            'Passo ${step + 1} de ${_stepTitles.length}',
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppColors.grey200,
+              valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+              minHeight: 6,
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  void _nextPage(SimulatorProvider sim) {
-    sim.nextStep();
-    _pageController.nextPage(
-        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-  }
-
-  void _addToCart(BuildContext context) {
-    final sim = context.read<SimulatorProvider>();
-    final cart = context.read<CartProvider>();
-    cart.addItem(sim.config);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('✅ Persiana adicionada ao carrinho!'),
-        backgroundColor: AppColors.success,
-        action: SnackBarAction(
-          label: 'Ver Carrinho',
-          textColor: Colors.white,
-          onPressed: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const CartScreen())),
+// ── Botão carrinho na AppBar ──────────────────────────────────
+class _CartBadgeButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cart = context.watch<CartProvider>();
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.shopping_cart_outlined),
+          onPressed: () {
+            // Navega para carrinho sem perder o simulador na pilha
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const _CartFromSimulator()),
+            );
+          },
         ),
-      ),
+        if (cart.totalQuantity > 0)
+          Positioned(
+            right: 6, top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              child: Text('${cart.totalQuantity}',
+                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+            ),
+          ),
+      ],
     );
-    sim.reset();
-    _pageController.jumpToPage(0);
+  }
+}
+
+// ── Wrapper para ir ao carrinho e depois conseguir voltar ────
+class _CartFromSimulator extends StatelessWidget {
+  const _CartFromSimulator();
+  @override
+  Widget build(BuildContext context) {
+    return const CartScreen();
   }
 }
 
 // ============================================================
-// STEP 1 — AMBIENTE
+// PASSO 1 — MODELO
 // ============================================================
-class _StepAmbiente extends StatelessWidget {
-  final VoidCallback onNext;
-  const _StepAmbiente({required this.onNext});
+class _StepModelo extends StatelessWidget {
+  const _StepModelo();
 
-  static const List<Map<String, dynamic>> _ambientes = [
-    {'label': 'Sala de Estar', 'icon': Icons.weekend_outlined, 'color': Color(0xFF1565C0)},
-    {'label': 'Quarto', 'icon': Icons.bed_outlined, 'color': Color(0xFF6A1B9A)},
-    {'label': 'Escritório', 'icon': Icons.business_center_outlined, 'color': Color(0xFF00695C)},
-    {'label': 'Cozinha', 'icon': Icons.kitchen_outlined, 'color': Color(0xFFE65100)},
-    {'label': 'Banheiro', 'icon': Icons.bathtub_outlined, 'color': Color(0xFF0277BD)},
-    {'label': 'Varanda', 'icon': Icons.deck_outlined, 'color': Color(0xFF2E7D32)},
-    {'label': 'Área Comercial', 'icon': Icons.store_outlined, 'color': Color(0xFF37474F)},
-    {'label': 'Outro', 'icon': Icons.home_outlined, 'color': Color(0xFF757575)},
-  ];
+  static const _modelImages = {
+    ProductCategory.rolo:
+        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
+    ProductCategory.romana:
+        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80',
+    ProductCategory.doubleVision:
+        'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=600&q=80',
+    ProductCategory.painel:
+        'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=600&q=80',
+    ProductCategory.horizontal25mm:
+        'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80',
+  };
 
   @override
   Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    return Column(children: [
+      Container(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: const Row(children: [
+          Icon(Icons.blinds, color: AppColors.primary, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('Selecione o modelo de persiana ideal para você',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: ProductCategory.values.length,
+          itemBuilder: (_, i) {
+            final cat = ProductCategory.values[i];
+            final sel = sim.config.category == cat;
+            final fabrics = PricingModel.getFabricsForCategory(cat);
+            final minPrice = fabrics
+                .map((f) => PricingModel.getPricePerM2(cat, f) ?? 0)
+                .reduce((a, b) => a < b ? a : b);
+
+            return GestureDetector(
+              onTap: () {
+                sim.setCategory(cat);
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                  simState?._goNext();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: sel ? AppColors.primary : AppColors.grey200,
+                    width: sel ? 2 : 1,
+                  ),
+                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 8)],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Row(
+                  children: [
+                    // Imagem ilustrativa do modelo
+                    SizedBox(
+                      width: 110, height: 110,
+                      child: Image.network(
+                        _modelImages[cat] ?? '',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.grey100,
+                          child: const Icon(Icons.blinds, size: 40, color: AppColors.grey400),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Expanded(
+                                child: Text(cat.displayName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold, fontSize: 15,
+                                      color: sel ? AppColors.primary : AppColors.textPrimary,
+                                    )),
+                              ),
+                              if (sel)
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                  child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                ),
+                            ]),
+                            const SizedBox(height: 4),
+                            Text(cat.categoryDescription,
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            const SizedBox(height: 6),
+                            Text('A partir de R\$ ${minPrice.toStringAsFixed(2)}/m²',
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Icon(Icons.chevron_right, color: AppColors.grey400),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+// ============================================================
+// PASSO 2 — TECIDO
+// ============================================================
+class _StepTecido extends StatelessWidget {
+  const _StepTecido();
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final fabrics = PricingModel.getFabricsForCategory(sim.config.category);
+
+    return Column(children: [
+      Container(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(children: [
+          const Icon(Icons.texture, color: AppColors.primary, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Tecidos disponíveis para ${sim.config.category.shortName}',
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: fabrics.length,
+          itemBuilder: (_, i) {
+            final fabric = fabrics[i];
+            final sel = sim.config.fabric == fabric;
+            final price = PricingModel.getPricePerM2(sim.config.category, fabric);
+            final hexStr = fabric.colorHex.replaceAll('#', '');
+            final swatch = Color(int.parse('FF$hexStr', radix: 16));
+
+            return GestureDetector(
+              onTap: () {
+                sim.setFabric(fabric);
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                  simState?._goNext();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: sel ? AppColors.primary : AppColors.grey200,
+                    width: sel ? 2 : 1,
+                  ),
+                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                ),
+                child: Row(children: [
+                  // Swatch de cor do tecido
+                  Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(
+                      color: swatch,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.grey200),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(fabric.displayName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14,
+                            color: sel ? AppColors.primary : AppColors.textPrimary,
+                          )),
+                      const SizedBox(height: 2),
+                      Text(fabric.lightBlock,
+                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      const SizedBox(height: 4),
+                      // Mini paleta das cores disponíveis DESTE tecido
+                      Row(children: [
+                        ...fabric.availableColors.take(6).map((c) {
+                          final h = c.hex.replaceAll('#', '').padLeft(6, '0');
+                          final col = Color(int.parse('FF$h', radix: 16));
+                          return Container(
+                            width: 14, height: 14,
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: BoxDecoration(
+                              color: col, shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black12),
+                            ),
+                          );
+                        }),
+                        if (fabric.availableColors.length > 6)
+                          Text('+${fabric.availableColors.length - 6}',
+                              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                      ]),
+                    ]),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    if (price != null) ...[
+                      const Text('a partir de', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                      Text('R\$ ${price.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14)),
+                      const Text('/m²', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                    ],
+                    const SizedBox(height: 4),
+                    if (sel)
+                      const Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+                  ]),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+// ============================================================
+// PASSO 3 — COR (vinculada ao tecido e modelo selecionado)
+// ============================================================
+class _StepCor extends StatelessWidget {
+  const _StepCor();
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final fabric = sim.config.fabric;
+
+    if (fabric == null) {
+      return const Center(child: Text('Selecione um tecido antes.'));
+    }
+
+    // Cores SOMENTE do tecido selecionado para este modelo
+    final colors = fabric.availableColors;
+
+    return Column(children: [
+      Container(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(children: [
+          const Icon(Icons.palette_outlined, color: AppColors.primary, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Cores disponíveis para ${fabric.displayName} — ${sim.config.category.shortName}',
+              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 12,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: colors.length,
+          itemBuilder: (_, i) {
+            final c = colors[i];
+            final hex = c.hex.replaceAll('#', '').padLeft(6, '0');
+            final col = Color(int.parse('FF$hex', radix: 16));
+            final sel = sim.config.fabricColor == c.name;
+
+            return GestureDetector(
+              onTap: () {
+                sim.setFabricColor(c.name);
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                  simState?._goNext();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: sel ? AppColors.primary : AppColors.grey200,
+                    width: sel ? 2.5 : 1,
+                  ),
+                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 56, height: 56,
+                          decoration: BoxDecoration(
+                            color: col,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.black12),
+                          ),
+                        ),
+                        if (sel)
+                          Container(
+                            width: 56, height: 56,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.black.withValues(alpha: 0.25),
+                            ),
+                            child: const Icon(Icons.check, color: Colors.white, size: 28),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(c.name,
+                          style: TextStyle(
+                            fontSize: 10.5, fontWeight: FontWeight.w600,
+                            color: sel ? AppColors.primary : AppColors.textPrimary,
+                          ),
+                          textAlign: TextAlign.center, maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+// ============================================================
+// PASSO 4 — INSTALAÇÃO
+// ============================================================
+class _StepInstalacao extends StatelessWidget {
+  const _StepInstalacao();
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(children: [
+            Icon(Icons.handyman_outlined, color: AppColors.primary),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'O tipo de instalação afeta as medidas. Escolha com cuidado.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        ...InstallationType.values.map((inst) {
+          final sel = sim.config.installation == inst;
+          return GestureDetector(
+            onTap: () {
+              sim.setInstallation(inst);
+              Future.delayed(const Duration(milliseconds: 200), () {
+                final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                simState?._goNext();
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: sel ? AppColors.primary.withValues(alpha: 0.06) : AppColors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: sel ? AppColors.primary : AppColors.grey200,
+                  width: sel ? 2 : 1,
+                ),
+                boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+              ),
+              child: Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: (sel ? AppColors.primary : AppColors.grey400).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.straighten_outlined,
+                      color: sel ? AppColors.primary : AppColors.grey500),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(inst.displayName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14,
+                          color: sel ? AppColors.primary : AppColors.textPrimary,
+                        )),
+                    const SizedBox(height: 3),
+                    Text(inst.description,
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 3),
+                    Text('💡 ${inst.measureTip}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.primary)),
+                  ]),
+                ),
+                if (sel)
+                  const Icon(Icons.check_circle, color: AppColors.primary),
+              ]),
+            ),
+          );
+        }),
+      ]),
+    );
+  }
+}
+
+// ============================================================
+// PASSO 5 — MEDIDAS
+// ============================================================
+class _StepMedidas extends StatefulWidget {
+  const _StepMedidas();
+  @override
+  State<_StepMedidas> createState() => _StepMedidasState();
+}
+
+class _StepMedidasState extends State<_StepMedidas> {
+  final _wCtrl = TextEditingController();
+  final _hCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sim = context.read<SimulatorProvider>();
+      if (sim.config.width != null) _wCtrl.text = sim.config.width!.toStringAsFixed(2);
+      if (sim.config.height != null) _hCtrl.text = sim.config.height!.toStringAsFixed(2);
+    });
+  }
+
+  @override
+  void dispose() {
+    _wCtrl.dispose();
+    _hCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final cfg = sim.config;
+    final w = double.tryParse(_wCtrl.text.replaceAll(',', '.')) ?? 0;
+    final h = double.tryParse(_hCtrl.text.replaceAll(',', '.')) ?? 0;
+    final area = w * h;
+    final billedArea = area < 1.5 && area > 0 ? 1.5 : area;
+    final price = cfg.pricePerM2 != null ? billedArea * cfg.pricePerM2! : 0.0;
+    final exceedsWidth = w > cfg.category.maxWidth && w > 0;
+    final exceedsHeight = h > 3.0 && h > 0;
+    final exceedsArea = area > 5.0;
+    final hasError = exceedsWidth || exceedsHeight || exceedsArea;
+    final readyToAdvance = w > 0 && h > 0 && !hasError;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Dica de instalação
+        if (cfg.installation != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('💡 ${cfg.installation!.measureTip}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+              ),
+            ]),
+          ),
+
+        // Diagrama visual da janela
+        _WindowDiagram(width: w, height: h),
+        const SizedBox(height: 20),
+
+        // Campos de medida
+        Text('Largura (metros)', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        _MeasureField(
+          controller: _wCtrl,
+          hint: 'ex: 1.20',
+          suffix: 'm',
+          error: exceedsWidth ? 'Máximo ${cfg.category.maxWidth.toStringAsFixed(2)} m para ${cfg.category.shortName}' : null,
+          onChanged: (v) {
+            final val = double.tryParse(v.replaceAll(',', '.'));
+            if (val != null) sim.setWidth(val);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 14),
+        Text('Altura (metros)', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        _MeasureField(
+          controller: _hCtrl,
+          hint: 'ex: 1.60',
+          suffix: 'm',
+          error: exceedsHeight ? 'Máximo 3,00 m de altura' : null,
+          onChanged: (v) {
+            final val = double.tryParse(v.replaceAll(',', '.'));
+            if (val != null) sim.setHeight(val);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // Card de cálculo em tempo real
+        if (area > 0)
+          _PriceCard(
+            area: area, billedArea: billedArea,
+            priceM2: cfg.pricePerM2 ?? 0,
+            totalPrice: price,
+            exceedsArea: exceedsArea,
+            shouldSplitSuggest: w > 2.40,
+          ),
+
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: readyToAdvance
+                ? () {
+                    final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                    simState?._goNext();
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+            child: const Text('Continuar para Acessórios', style: TextStyle(fontSize: 15)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ============================================================
+// PASSO 6 — ACESSÓRIOS
+// ============================================================
+class _StepAcessorios extends StatelessWidget {
+  const _StepAcessorios();
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final cfg = sim.config;
+    final w = cfg.width ?? 1.0;
+    final h = cfg.height ?? 1.0;
+
+    return Column(children: [
+      Container(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: const Row(children: [
+          Icon(Icons.add_box_outlined, color: AppColors.primary, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('Selecione os acessórios opcionais para sua persiana',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            ...AccessoryType.values.map((acc) {
+              final sel = cfg.accessories.contains(acc);
+              final realPrice = acc.calculatePrice(w, h);
+              return GestureDetector(
+                onTap: () => sim.toggleAccessory(acc),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: sel ? AppColors.primary.withValues(alpha: 0.06) : AppColors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: sel ? AppColors.primary : AppColors.grey200,
+                      width: sel ? 2 : 1,
+                    ),
+                    boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                  ),
+                  child: Row(children: [
+                    Text(acc.icon, style: const TextStyle(fontSize: 26)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(acc.displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14,
+                              color: sel ? AppColors.primary : AppColors.textPrimary,
+                            )),
+                        const SizedBox(height: 2),
+                        Text(acc.description,
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        // Preço calculado com as medidas reais
+                        if (acc.isPerMeter)
+                          Text(
+                            'R\$ ${realPrice.toStringAsFixed(2)} (calculado pelas medidas)',
+                            style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                          )
+                        else
+                          Text('R\$ ${realPrice.toStringAsFixed(2)} (valor fixo)',
+                              style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                    Checkbox(
+                      value: sel,
+                      activeColor: AppColors.primary,
+                      onChanged: (_) => sim.toggleAccessory(acc),
+                    ),
+                  ]),
+                ),
+              );
+            }),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                  simState?._goNext();
+                },
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: const Text('Ver Resumo e Preço Final', style: TextStyle(fontSize: 15)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+}
+
+// ============================================================
+// PASSO 7 — LADO DO COMANDO / MOTOR
+// ============================================================
+class _StepLadoComando extends StatelessWidget {
+  const _StepLadoComando();
+
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final selected = sim.config.commandSide;
+    final hasMotor = sim.config.accessories.contains(AccessoryType.motorWifi);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Para qual ambiente?',
-              style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          const Text('Isso nos ajuda a recomendar o melhor modelo',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-          const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.6,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          // Info sobre o que é o lado do comando
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
             ),
-            itemCount: _ambientes.length,
-            itemBuilder: (context, i) {
-              final a = _ambientes[i];
-              return GestureDetector(
-                onTap: onNext,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.grey200),
-                    boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+            child: Row(children: [
+              const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  hasMotor
+                      ? 'Informe de qual lado ficará o motor WiFi ao olhar para a persiana instalada.'
+                      : 'Informe de qual lado ficará a corrente de acionamento ao olhar para a persiana instalada.',
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 24),
+
+          // Ilustração visual do lado
+          _CommandSideIllustration(
+            selected: selected,
+            hasMotor: hasMotor,
+            onSelect: (side) => sim.setCommandSide(side),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Cards de seleção
+          ...CommandSide.values.map((side) {
+            final isSel = selected == side;
+            return GestureDetector(
+              onTap: () {
+                sim.setCommandSide(side);
+                Future.delayed(const Duration(milliseconds: 250), () {
+                  final simState = context.findAncestorStateOfType<_SimulatorScreenState>();
+                  simState?._goNext();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isSel ? AppColors.primary.withValues(alpha: 0.06) : AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSel ? AppColors.primary : AppColors.grey200,
+                    width: isSel ? 2 : 1,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: (a['color'] as Color).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(a['icon'] as IconData,
-                            color: a['color'] as Color, size: 22),
+                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 8)],
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: (isSel ? AppColors.primary : AppColors.grey400).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      side.icon,
+                      color: isSel ? AppColors.primary : AppColors.grey500,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Text(
+                            'Comando ${side.displayName}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isSel ? AppColors.primary : AppColors.textPrimary,
+                            ),
+                          ),
+                          if (side == CommandSide.right) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Mais comum',
+                                  style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(side.description,
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        if (hasMotor) ...[
+                          const SizedBox(height: 4),
+                          Text('Motor WiFi no lado ${side.displayName.toLowerCase()}',
+                              style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (isSel)
+                    const Icon(Icons.check_circle, color: AppColors.primary),
+                ]),
+              ),
+            );
+          }),
+
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lightbulb_outline, color: Colors.amber, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Dica: observe a posição da janela em relação à parede e passagem. '
+                    'Geralmente o lado oposto à parede mais próxima é o mais conveniente.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF795548)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Ilustração visual interativa do lado do comando ──────────
+class _CommandSideIllustration extends StatelessWidget {
+  final CommandSide selected;
+  final bool hasMotor;
+  final ValueChanged<CommandSide> onSelect;
+
+  const _CommandSideIllustration({
+    required this.selected,
+    required this.hasMotor,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.grey100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.grey200),
+      ),
+      child: Column(
+        children: [
+          const Text('Toque para selecionar o lado',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Lado esquerdo
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onSelect(CommandSide.left),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: selected == CommandSide.left
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected == CommandSide.left
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        width: 2,
                       ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Text(a['label'] as String,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
+                    ),
+                    child: Column(children: [
+                      Icon(hasMotor ? Icons.electrical_services : Icons.link,
+                          color: selected == CommandSide.left
+                              ? AppColors.primary
+                              : AppColors.grey400,
+                          size: 22),
+                      const SizedBox(height: 4),
+                      Text(hasMotor ? 'Motor' : 'Corrente',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: selected == CommandSide.left
+                                ? AppColors.primary
+                                : AppColors.grey400,
+                          )),
+                    ]),
+                  ),
+                ),
+              ),
+
+              // Persiana (centro)
+              Expanded(
+                flex: 3,
+                child: Container(
+                  height: 80,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 2),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Ripas horizontais simuladas
+                      ...List.generate(5, (i) => Positioned(
+                        top: 8.0 + i * 14,
+                        left: 4,
+                        right: 4,
+                        child: Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      )),
+                      Center(
+                        child: Text('Persiana',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.primary.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.bold,
+                            )),
                       ),
                     ],
                   ),
+                ),
+              ),
+
+              // Lado direito
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onSelect(CommandSide.right),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: selected == CommandSide.right
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected == CommandSide.right
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(children: [
+                      Icon(hasMotor ? Icons.electrical_services : Icons.link,
+                          color: selected == CommandSide.right
+                              ? AppColors.primary
+                              : AppColors.grey400,
+                          size: 22),
+                      const SizedBox(height: 4),
+                      Text(hasMotor ? 'Motor' : 'Corrente',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: selected == CommandSide.right
+                                ? AppColors.primary
+                                : AppColors.grey400,
+                          )),
+                    ]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('← Esquerdo',
+                  style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600,
+                    color: selected == CommandSide.left ? AppColors.primary : AppColors.grey400,
+                  )),
+              Text('Direito →',
+                  style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600,
+                    color: selected == CommandSide.right ? AppColors.primary : AppColors.grey400,
+                  )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// PASSO 8 — RESUMO E PREÇO FINAL
+// ============================================================
+class _StepResumo extends StatelessWidget {
+  const _StepResumo();
+
+  String _formatVal(double v) => 'R\$ ${v.toStringAsFixed(2).replaceAll('.', ',')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final sim = context.watch<SimulatorProvider>();
+    final cart = context.read<CartProvider>();
+    final cfg = sim.config;
+
+    // Verifica se a configuração é válida
+    final isComplete = cfg.fabric != null
+        && cfg.installation != null
+        && (cfg.width ?? 0) > 0
+        && (cfg.height ?? 0) > 0;
+
+    final w = cfg.width ?? 0;
+    final h = cfg.height ?? 0;
+    final area = w * h;
+    final billedArea = area < 1.5 && area > 0 ? 1.5 : area;
+    final priceM2 = cfg.pricePerM2 ?? 0;
+    final basePrice = billedArea * priceM2;
+    final accPrice = cfg.accessoriesPrice;
+    final totalPrice = basePrice + accPrice;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Cabeçalho ────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, Color(0xFF0D47A1)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(children: [
+            const Icon(Icons.receipt_long_outlined, color: Colors.white, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Resumo da Configuração',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(isComplete ? 'Configuração completa ✓' : '⚠️ Configure todos os passos antes de continuar',
+                    style: TextStyle(
+                        color: isComplete ? Colors.white70 : Colors.yellowAccent,
+                        fontSize: 12)),
+              ]),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Detalhes da configuração ─────────────────────────
+        _ResumoSection('Produto', [
+          _ResumoRow('Modelo', cfg.category.displayName),
+          _ResumoRow('Tecido', cfg.fabric?.displayName ?? '—'),
+          _ResumoRow('Cor', cfg.fabricColor ?? '—'),
+          _ResumoRow('Instalação', cfg.installation?.displayName ?? '—'),
+          _ResumoRow('Lado do Comando', 'Lado ${cfg.commandSide.displayName}'),
+        ]),
+        const SizedBox(height: 12),
+
+        // ── Medidas ──────────────────────────────────────────
+        _ResumoSection('Medidas', [
+          _ResumoRow('Largura', w > 0 ? '${w.toStringAsFixed(2)} m' : '—'),
+          _ResumoRow('Altura', h > 0 ? '${h.toStringAsFixed(2)} m' : '—'),
+          _ResumoRow('Área real', area > 0 ? '${area.toStringAsFixed(3)} m²' : '—'),
+          if (area > 0 && area < 1.5)
+            _ResumoRow('Área cobrada (mínimo)', '${billedArea.toStringAsFixed(2)} m²',
+                highlight: true),
+        ]),
+        const SizedBox(height: 12),
+
+        // ── Preços ────────────────────────────────────────────
+        _ResumoSection('Composição do Preço', [
+          _ResumoRow('Preço/m²', priceM2 > 0 ? _formatVal(priceM2) : '—'),
+          _ResumoRow('Persiana (${billedArea.toStringAsFixed(2)} m²)', basePrice > 0 ? _formatVal(basePrice) : '—'),
+          if (cfg.accessories.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            ...cfg.accessories.map((acc) {
+              final p = acc.calculatePrice(w > 0 ? w : 1, h > 0 ? h : 1);
+              return _ResumoRow('+ ${acc.displayName}', _formatVal(p));
+            }),
+          ],
+        ]),
+        const SizedBox(height: 8),
+
+        // ── Total ─────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('TOTAL ESTIMADO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(
+                totalPrice > 0 ? _formatVal(totalPrice) : 'Preencha as medidas',
+                style: TextStyle(
+                  color: totalPrice > 0 ? AppColors.primary : AppColors.textSecondary,
+                  fontWeight: FontWeight.bold, fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text('* Frete não incluído. Parcelamento em até 12x no cartão.',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+        const SizedBox(height: 24),
+
+        // ── Ações ─────────────────────────────────────────────
+        if (isComplete && totalPrice > 0) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.add_shopping_cart),
+              label: const Text('Adicionar ao Carrinho', style: TextStyle(fontSize: 15)),
+              style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () {
+                cart.addItem(cfg);
+                _showAddedDialog(context, totalPrice);
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Nova Configuração'),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: () {
+                sim.reset();
+                final ctrl = context.findAncestorStateOfType<_SimulatorScreenState>()?._pageController;
+                ctrl?.jumpToPage(0);
+              },
+            ),
+          ),
+        ] else
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_outlined, color: Colors.orange),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Complete todos os passos anteriores para adicionar ao carrinho.',
+                  style: TextStyle(fontSize: 13, color: Colors.orange),
+                ),
+              ),
+            ]),
+          ),
+        const SizedBox(height: 24),
+      ]),
+    );
+  }
+
+  void _showAddedDialog(BuildContext context, double total) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(children: [
+          Icon(Icons.check_circle, color: AppColors.success, size: 28),
+          SizedBox(width: 10),
+          Text('Produto adicionado!'),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('R\$ ${total.toStringAsFixed(2).replaceAll('.', ',')} adicionado ao carrinho.',
+              style: const TextStyle(fontSize: 14)),
+          const SizedBox(height: 8),
+          const Text('Deseja continuar comprando ou ir ao carrinho?',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              // Resetar e voltar ao passo 1 para nova configuração
+              final sim = context.read<SimulatorProvider>();
+              sim.reset();
+              final ctrl = context.findAncestorStateOfType<_SimulatorScreenState>()?._pageController;
+              ctrl?.jumpToPage(0);
+            },
+            child: const Text('Nova Persiana'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.shopping_cart, size: 16),
+            label: const Text('Ir ao Carrinho'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              // Navega direto para a CartScreen como nova rota (funciona corretamente)
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  fullscreenDialog: false,
+                  builder: (_) => const CartScreen(),
                 ),
               );
             },
@@ -253,1350 +1413,225 @@ class _StepAmbiente extends StatelessWidget {
   }
 }
 
-// ============================================================
-// STEP 2 — MODELO
-// ============================================================
-class _StepModelo extends StatelessWidget {
-  final VoidCallback onNext;
-  const _StepModelo({required this.onNext});
+// ── Widgets auxiliares do resumo ─────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Qual modelo?', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          const Text('Selecione o tipo de persiana ideal',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-          const SizedBox(height: 20),
-          ...ProductCategory.values.map((cat) {
-            return GestureDetector(
-              onTap: () {
-                context.read<SimulatorProvider>().setCategory(cat);
-                onNext();
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.grey200),
-                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        cat.imageNetwork,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                            width: 60,
-                            height: 60,
-                            color: AppColors.grey100,
-                            child: const Icon(Icons.blinds,
-                                color: AppColors.grey400)),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(cat.displayName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15)),
-                          Text(
-                            'Largura máx: ${cat.maxWidth.toStringAsFixed(2)} m',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right, color: AppColors.grey400),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// STEP 3 — TECIDO E COR
-// ============================================================
-class _StepTecido extends StatefulWidget {
-  final VoidCallback onNext;
-  const _StepTecido({required this.onNext});
-  @override
-  State<_StepTecido> createState() => _StepTecidoState();
-}
-
-class _StepTecidoState extends State<_StepTecido> {
-  FabricType? _selectedFabric;
-  FabricColor? _selectedColor;
-
-  bool get _canProceed => _selectedFabric != null && _selectedColor != null;
-
-  @override
-  Widget build(BuildContext context) {
-    final sim = context.watch<SimulatorProvider>();
-    final fabrics = PricingModel.getFabricsForCategory(sim.config.category);
-
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Título ──
-                Text('Tecido e Cor',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 4),
-                const Text('Selecione o tecido e depois escolha a cor',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                const SizedBox(height: 20),
-
-                // ── Lista de tecidos ──
-                Text('1. Escolha o Tecido',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 10),
-                ...fabrics.map((fabric) {
-                  final price = PricingModel.getPricePerM2(sim.config.category, fabric) ?? 0;
-                  final isSelected = _selectedFabric == fabric;
-
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      _selectedFabric = fabric;
-                      _selectedColor = null; // reset cor ao trocar tecido
-                    }),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.05)
-                            : AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.grey200,
-                          width: isSelected ? 2 : 1,
-                        ),
-                        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4)],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              // Swatches das primeiras 4 cores disponíveis
-                              SizedBox(
-                                width: 72,
-                                height: 44,
-                                child: Stack(
-                                  children: fabric.availableColors.take(4).toList().asMap().entries.map((e) {
-                                    return Positioned(
-                                      left: e.key * 16.0,
-                                      child: Container(
-                                        width: 36,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: e.value.color,
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: Colors.white, width: 1.5),
-                                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 2)],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(fabric.displayName,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(fabric.lightBlock,
-                                              style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w500)),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text('${fabric.availableColors.length} cores',
-                                            style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(formatCurrency(price),
-                                      style: const TextStyle(
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14)),
-                                  const Text('por m²',
-                                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                                ],
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 8),
-                                const Icon(Icons.check_circle, color: AppColors.primary, size: 22),
-                              ],
-                            ],
-                          ),
-
-                          // ── Seletor de cores (aparece ao selecionar o tecido) ──
-                          if (isSelected) ...[
-                            const SizedBox(height: 14),
-                            const Divider(height: 1),
-                            const SizedBox(height: 12),
-                            Text('2. Escolha a Cor',
-                                style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: fabric.availableColors.map((fc) {
-                                final isCor = _selectedColor?.name == fc.name;
-                                return GestureDetector(
-                                  onTap: () => setState(() => _selectedColor = fc),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isCor ? AppColors.primary.withValues(alpha: 0.08) : AppColors.grey100,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isCor ? AppColors.primary : AppColors.grey200,
-                                        width: isCor ? 2 : 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 24,
-                                          height: 24,
-                                          decoration: BoxDecoration(
-                                            color: fc.color,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: isCor ? AppColors.primary : AppColors.grey300,
-                                              width: isCor ? 2 : 1,
-                                            ),
-                                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 3)],
-                                          ),
-                                          child: isCor
-                                              ? Icon(Icons.check,
-                                                  size: 14,
-                                                  color: fc.color.computeLuminance() > 0.5
-                                                      ? Colors.black87
-                                                      : Colors.white)
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 7),
-                                        Text(fc.name,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: isCor ? FontWeight.w600 : FontWeight.normal,
-                                              color: isCor ? AppColors.primary : AppColors.textPrimary,
-                                            )),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-
-                            // Preview da cor selecionada
-                            if (_selectedColor != null) ...[
-                              const SizedBox(height: 14),
-                              Container(
-                                width: double.infinity,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: _selectedColor!.color,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.grey300),
-                                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
-                                ),
-                                child: Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.25),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${fabric.displayName} — ${_selectedColor!.name}',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-
-        // ── Barra inferior com status ──
-        Container(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: const Offset(0, -2))],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Indicadores de seleção
-              Row(
-                children: [
-                  _SelectionBadge(
-                    label: _selectedFabric?.displayName ?? 'Tecido não selecionado',
-                    done: _selectedFabric != null,
-                    icon: Icons.texture,
-                  ),
-                  const SizedBox(width: 8),
-                  _SelectionBadge(
-                    label: _selectedColor?.name ?? 'Cor não selecionada',
-                    done: _selectedColor != null,
-                    icon: Icons.palette_outlined,
-                    color: _selectedColor?.color,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: GradientButton(
-                  label: _canProceed ? 'Continuar' : 'Selecione tecido e cor',
-                  onPressed: _canProceed
-                      ? () {
-                          context.read<SimulatorProvider>().setFabric(_selectedFabric!);
-                          context.read<SimulatorProvider>().setFabricColor(_selectedColor!.name);
-                          widget.onNext();
-                        }
-                      : null,
-                  icon: Icons.arrow_forward,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SelectionBadge extends StatelessWidget {
-  final String label;
-  final bool done;
-  final IconData icon;
-  final Color? color;
-  const _SelectionBadge({required this.label, required this.done, required this.icon, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: done
-              ? AppColors.success.withValues(alpha: 0.08)
-              : AppColors.grey100,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: done ? AppColors.success.withValues(alpha: 0.4) : AppColors.grey200,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (color != null)
-              Container(
-                width: 14, height: 14,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.grey300),
-                ),
-              )
-            else
-              Icon(icon, size: 14, color: done ? AppColors.success : AppColors.grey400),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: done ? FontWeight.w600 : FontWeight.normal,
-                  color: done ? AppColors.success : AppColors.grey500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (done) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.check_circle, size: 12, color: AppColors.success),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// STEP 4 — INSTALAÇÃO
-// ============================================================
-class _StepInstalacao extends StatefulWidget {
-  final VoidCallback onNext;
-  const _StepInstalacao({required this.onNext});
-  @override
-  State<_StepInstalacao> createState() => _StepInstalacaoState();
-}
-
-class _StepInstalacaoState extends State<_StepInstalacao> {
-  InstallationType? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Tipo de Instalação',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                const Text(
-                    'Como a persiana será instalada na sua janela?',
-                    style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 20),
-                ...InstallationType.values.map((type) {
-                  final isSelected = _selected == type;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selected = type),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.05)
-                            : AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.grey200,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: (isSelected
-                                      ? AppColors.primary
-                                      : AppColors.grey400)
-                                  .withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.window_outlined,
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.grey500,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(type.displayName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14)),
-                                Text(type.description,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary)),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.lightbulb_outline,
-                                          size: 12, color: AppColors.primary),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(type.measureTip,
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.primary)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isSelected)
-                            const Icon(Icons.check_circle,
-                                color: AppColors.primary),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-        _BottomActionBar(
-          enabled: _selected != null,
-          onNext: () {
-            if (_selected != null) {
-              context
-                  .read<SimulatorProvider>()
-                  .setInstallation(_selected!);
-              widget.onNext();
-            }
-          },
-        ),
-      ],
-    );
-  }
-}
-
-// ============================================================
-// STEP 5 — MEDIDAS
-// ============================================================
-class _StepMedidas extends StatefulWidget {
-  final VoidCallback onNext;
-  const _StepMedidas({required this.onNext});
-  @override
-  State<_StepMedidas> createState() => _StepMedidasState();
-}
-
-class _StepMedidasState extends State<_StepMedidas> {
-  final _widthController = TextEditingController();
-  final _heightController = TextEditingController();
-  double _width = 0;
-  double _height = 0;
-  String? _widthError;
-  String? _heightError;
-
-  @override
-  void dispose() {
-    _widthController.dispose();
-    _heightController.dispose();
-    super.dispose();
-  }
-
-  void _validate() {
-    final sim = context.read<SimulatorProvider>();
-    final cat = sim.config.category;
-    setState(() {
-      _widthError = null;
-      _heightError = null;
-      if (_width <= 0) {
-        _widthError = 'Informe a largura';
-      } else if (_width > cat.maxWidth) {
-        _widthError =
-            'Para medidas maiores consulte nosso atendimento.\nMáx: ${cat.maxWidth.toStringAsFixed(2)} m';
-      }
-      if (_height <= 0) {
-        _heightError = 'Informe a altura';
-      } else if (_height > SimulatorConfig.maxHeight) {
-        _heightError =
-            'Para medidas maiores consulte nosso atendimento.\nMáx: 3,00 m';
-      }
-      if (_width > 0 && _height > 0) {
-        final area = _width * _height;
-        if (area > SimulatorConfig.maxArea) {
-          _widthError =
-              'Para medidas maiores consulte nosso atendimento.\nÁrea máx: 5,00 m²';
-        }
-      }
-    });
-  }
-
-  bool get _isValid =>
-      _width > 0 &&
-      _height > 0 &&
-      _widthError == null &&
-      _heightError == null;
-
-  SimulatorConfig get _previewConfig {
-    final sim = context.read<SimulatorProvider>();
-    return sim.config.copyWith(width: _width > 0 ? _width : null, height: _height > 0 ? _height : null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sim = context.watch<SimulatorProvider>();
-    final cat = sim.config.category;
-    final area = _width * _height;
-    final billedArea = area < SimulatorConfig.minArea ? SimulatorConfig.minArea : area;
-
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Medidas da Janela',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                const Text(
-                    'Insira as medidas em metros (ex: 1.20)',
-                    style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 20),
-
-                // Diagrama visual da janela
-                _WindowDiagram(
-                  width: _width,
-                  height: _height,
-                  maxWidth: cat.maxWidth,
-                ),
-                const SizedBox(height: 20),
-
-                // Campos de medida
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MeasureField(
-                        controller: _widthController,
-                        label: 'Largura (m)',
-                        hint: '0.00',
-                        icon: Icons.swap_horiz,
-                        error: _widthError,
-                        onChanged: (v) {
-                          _width = double.tryParse(v.replaceAll(',', '.')) ?? 0;
-                          context.read<SimulatorProvider>().setWidth(_width);
-                          _validate();
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _MeasureField(
-                        controller: _heightController,
-                        label: 'Altura (m)',
-                        hint: '0.00',
-                        icon: Icons.swap_vert,
-                        error: _heightError,
-                        onChanged: (v) {
-                          _height = double.tryParse(v.replaceAll(',', '.')) ?? 0;
-                          context.read<SimulatorProvider>().setHeight(_height);
-                          _validate();
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Sugestão de divisão
-                if (_width > 2.40 && _widthError == null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFFE082)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.lightbulb_outline,
-                            color: Color(0xFFFF8F00), size: 18),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Para melhor funcionamento, recomendamos dividir em duas peças.',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF795548)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-
-                // Card de cálculo em tempo real
-                if (_width > 0 && _height > 0) ...[
-                  _PriceCalculationCard(
-                    area: area,
-                    billedArea: billedArea,
-                    config: _previewConfig,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        _BottomActionBar(
-          enabled: _isValid,
-          onNext: widget.onNext,
-        ),
-      ],
-    );
-  }
-}
-
-class _WindowDiagram extends StatelessWidget {
-  final double width;
-  final double height;
-  final double maxWidth;
-  const _WindowDiagram(
-      {required this.width, required this.height, required this.maxWidth});
-
+class _ResumoSection extends StatelessWidget {
+  final String title;
+  final List<Widget> rows;
+  const _ResumoSection(this.title, this.rows);
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.grey100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.grey300),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.grey200),
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4)],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.window_outlined, size: 60, color: AppColors.grey400),
-              const SizedBox(height: 8),
-              Text(
-                width > 0 && height > 0
-                    ? '${width.toStringAsFixed(2)}m × ${height.toStringAsFixed(2)}m'
-                    : 'Insira as medidas abaixo',
-                style: TextStyle(
-                  color:
-                      width > 0 && height > 0 ? AppColors.primary : AppColors.grey400,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
-              if (width > 0 && height > 0)
-                Text(
-                  'Área: ${(width * height).toStringAsFixed(2)} m²',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MeasureField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label, hint;
-  final IconData icon;
-  final String? error;
-  final ValueChanged<String> onChanged;
-
-  const _MeasureField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.icon,
-    this.error,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 18),
-            errorText: error != null ? '' : null,
-          ),
-        ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Text(error!,
-                style:
-                    const TextStyle(color: AppColors.error, fontSize: 11)),
-          ),
-      ],
-    );
-  }
-}
-
-class _PriceCalculationCard extends StatelessWidget {
-  final double area;
-  final double billedArea;
-  final SimulatorConfig config;
-
-  const _PriceCalculationCard(
-      {required this.area, required this.billedArea, required this.config});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          const Text('Cálculo em Tempo Real',
-              style: TextStyle(
-                  color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Área calculada:',
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Text('${area.toStringAsFixed(2)} m²',
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          if (area < SimulatorConfig.minArea) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Área mínima cobrada:',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('${billedArea.toStringAsFixed(2)} m²',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ],
-          if (config.pricePerM2 != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Preço por m²:',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                Text(formatCurrency(config.pricePerM2!),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const Divider(color: Colors.white24, height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Preço estimado:',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
-                Text(
-                  formatCurrency(config.basePrice),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// STEP 6 — ACESSÓRIOS
-// ============================================================
-class _StepAcessorios extends StatelessWidget {
-  final VoidCallback onNext;
-  const _StepAcessorios({required this.onNext});
-
-  @override
-  Widget build(BuildContext context) {
-    final sim = context.watch<SimulatorProvider>();
-
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Acessórios Opcionais',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                const Text('Adicione itens extras para sua persiana',
-                    style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 20),
-                ...AccessoryType.values.map((acc) {
-                  final isSelected =
-                      sim.config.accessories.contains(acc);
-                  return GestureDetector(
-                    onTap: () => context
-                        .read<SimulatorProvider>()
-                        .toggleAccessory(acc),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.05)
-                            : AppColors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.grey200,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(acc.icon,
-                              style: const TextStyle(fontSize: 24)),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(acc.displayName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14)),
-                                Text(acc.description,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                formatCurrency(acc.price),
-                                style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14),
-                              ),
-                              if (isSelected)
-                                const Icon(Icons.check_circle,
-                                    color: AppColors.primary, size: 20),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 16),
-                if (sim.config.accessories.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: AppColors.success.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total de acessórios:',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        Text(
-                          formatCurrency(sim.config.accessoriesPrice),
-                          style: const TextStyle(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        _BottomActionBar(onNext: onNext, label: 'Ver Resumo'),
-      ],
-    );
-  }
-}
-
-// ============================================================
-// STEP 7 — RESUMO E PREÇO FINAL
-// ============================================================
-class _StepResumo extends StatelessWidget {
-  final Function(BuildContext) onAddToCart;
-  const _StepResumo({required this.onAddToCart});
-
-  @override
-  Widget build(BuildContext context) {
-    final sim = context.watch<SimulatorProvider>();
-    final config = sim.config;
-
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Resumo do Pedido',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 6),
-                const Text('Confira os detalhes antes de adicionar ao carrinho',
-                    style: TextStyle(
-                        color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 20),
-
-                // Card resumo
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(color: AppColors.shadow, blurRadius: 10)
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _ResumoRow(
-                          icon: Icons.blinds,
-                          label: 'Modelo',
-                          value: config.category.displayName),
-                      if (config.fabric != null)
-                        _ResumoRow(
-                            icon: Icons.texture,
-                            label: 'Tecido',
-                            value: config.fabric!.displayName),
-                      if (config.fabricColor != null)
-                        _ResumoRow(
-                            icon: Icons.palette_outlined,
-                            label: 'Cor',
-                            value: config.fabricColor!),
-                      if (config.installation != null)
-                        _ResumoRow(
-                            icon: Icons.construction_outlined,
-                            label: 'Instalação',
-                            value: config.installation!.displayName),
-                      if (config.width != null && config.height != null) ...[
-                        _ResumoRow(
-                            icon: Icons.swap_horiz,
-                            label: 'Largura',
-                            value: '${config.width!.toStringAsFixed(2)} m'),
-                        _ResumoRow(
-                            icon: Icons.swap_vert,
-                            label: 'Altura',
-                            value: '${config.height!.toStringAsFixed(2)} m'),
-                        _ResumoRow(
-                            icon: Icons.crop_square,
-                            label: 'Área calculada',
-                            value: '${config.area.toStringAsFixed(2)} m²'),
-                        _ResumoRow(
-                            icon: Icons.receipt_outlined,
-                            label: 'Área cobrada',
-                            value: '${config.billedArea.toStringAsFixed(2)} m²',
-                            valueColor: config.billedArea > config.area
-                                ? AppColors.warning
-                                : null),
-                      ],
-                      if (config.pricePerM2 != null)
-                        _ResumoRow(
-                            icon: Icons.price_change_outlined,
-                            label: 'Preço por m²',
-                            value: formatCurrency(config.pricePerM2!)),
-                    ],
-                  ),
-                ),
-
-                if (config.accessories.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('Acessórios',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(color: AppColors.shadow, blurRadius: 6)
-                      ],
-                    ),
-                    child: Column(
-                      children: config.accessories.map((acc) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Text(acc.icon),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                  child: Text(acc.displayName,
-                                      style: const TextStyle(fontSize: 13))),
-                              Text(formatCurrency(acc.price),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary)),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 20),
-
-                // Preço final
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Persiana:',
-                              style: TextStyle(color: Colors.white70)),
-                          Text(formatCurrency(config.basePrice),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      if (config.accessories.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Acessórios:',
-                                style: TextStyle(color: Colors.white70)),
-                            Text(formatCurrency(config.accessoriesPrice),
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ],
-                      const Divider(color: Colors.white24, height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('TOTAL:',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16)),
-                          Text(
-                            formatCurrency(config.totalPrice),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 26),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                          '* Frete calculado no checkout',
-                          style: TextStyle(
-                              color: Colors.white60, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Container(
-          padding: EdgeInsets.fromLTRB(
-              16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-          color: AppColors.white,
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    // Navigate to environment simulator
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Simulador de ambiente em breve!')),
-                    );
-                  },
-                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                  label: const Text('Simular Ambiente'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: config.totalPrice > 0
-                      ? () => onAddToCart(context)
-                      : null,
-                  icon: const Icon(Icons.shopping_cart_outlined, size: 18),
-                  label: const Text('Adicionar ao Carrinho'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+        const SizedBox(height: 8),
+        const Divider(height: 1),
+        const SizedBox(height: 8),
+        ...rows,
+      ]),
     );
   }
 }
 
 class _ResumoRow extends StatelessWidget {
-  final IconData icon;
   final String label, value;
-  final Color? valueColor;
-
-  const _ResumoRow(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      this.valueColor});
-
+  final bool highlight;
+  const _ResumoRow(this.label, this.value, {this.highlight = false});
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Text(label,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 13))),
+          Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           Text(value,
               style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: valueColor ?? AppColors.textPrimary)),
+                fontSize: 13,
+                fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
+                color: highlight ? AppColors.primary : AppColors.textPrimary,
+              )),
         ],
       ),
     );
   }
 }
 
-class _BottomActionBar extends StatelessWidget {
-  final VoidCallback onNext;
-  final bool enabled;
-  final String label;
-
-  const _BottomActionBar(
-      {required this.onNext, this.enabled = true, this.label = 'Continuar'});
+// ── Diagrama de janela ────────────────────────────────────────
+class _WindowDiagram extends StatelessWidget {
+  final double width, height;
+  const _WindowDiagram({required this.width, required this.height});
 
   @override
   Widget build(BuildContext context) {
+    final hasSize = width > 0 && height > 0;
+    final ratio = hasSize ? (width / height).clamp(0.3, 3.0) : 1.0;
+    final boxH = 120.0;
+    final boxW = (boxH * ratio).clamp(60.0, 240.0);
+
     return Container(
-      padding: EdgeInsets.fromLTRB(
-          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, -2))
-        ],
+        color: AppColors.primary.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: GradientButton(
-          label: label,
-          onPressed: enabled ? onNext : null,
-          icon: Icons.arrow_forward,
+      child: Column(children: [
+        const Text('Visualização proporcional', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+        const SizedBox(height: 12),
+        Center(
+          child: Container(
+            width: boxW, height: boxH,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              border: Border.all(color: AppColors.primary, width: 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                if (hasSize)
+                  Text('${width.toStringAsFixed(2)}m × ${height.toStringAsFixed(2)}m',
+                      style: const TextStyle(
+                          color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+              ]),
+            ),
+          ),
         ),
-      ),
+        if (hasSize) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Área: ${(width * height).toStringAsFixed(3)} m²  |  '
+            'Mínimo cobrado: ${(width * height < 1.5 ? 1.5 : width * height).toStringAsFixed(2)} m²',
+            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ]),
     );
   }
 }
+
+// ── Campo de medida ───────────────────────────────────────────
+class _MeasureField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint, suffix;
+  final String? error;
+  final ValueChanged<String> onChanged;
+  const _MeasureField({
+    required this.controller, required this.hint,
+    required this.suffix, required this.onChanged, this.error,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
+      decoration: InputDecoration(
+        hintText: hint,
+        suffixText: suffix,
+        errorText: error,
+        border: const OutlineInputBorder(),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+// ── Price card ────────────────────────────────────────────────
+class _PriceCard extends StatelessWidget {
+  final double area, billedArea, priceM2, totalPrice;
+  final bool exceedsArea, shouldSplitSuggest;
+  const _PriceCard({
+    required this.area, required this.billedArea,
+    required this.priceM2, required this.totalPrice,
+    required this.exceedsArea, required this.shouldSplitSuggest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (exceedsArea) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+        ),
+        child: const Row(children: [
+          Icon(Icons.error_outline, color: AppColors.error),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Área máxima é 5,00 m². Divida em 2 ou mais persianas.',
+                style: TextStyle(color: AppColors.error, fontSize: 13)),
+          ),
+        ]),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.calculate_outlined, color: AppColors.success, size: 18),
+          SizedBox(width: 8),
+          Text('Cálculo em tempo real',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.success)),
+        ]),
+        const SizedBox(height: 10),
+        _Row('Área real:', '${area.toStringAsFixed(3)} m²'),
+        if (area < 1.5) _Row('Área mínima cobrada:', '1,50 m²', highlight: true),
+        _Row('Preço/m²:', 'R\$ ${priceM2.toStringAsFixed(2)}'),
+        const Divider(height: 16),
+        _Row('Estimativa:', 'R\$ ${totalPrice.toStringAsFixed(2)}', bigger: true),
+        if (shouldSplitSuggest) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '💡 Largura > 2,40m: considere dividir em 2 persianas para melhor resultado.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF795548)),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _Row(String label, String value, {bool highlight = false, bool bigger = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(value,
+            style: TextStyle(
+              fontSize: bigger ? 15 : 12,
+              fontWeight: highlight || bigger ? FontWeight.bold : FontWeight.w600,
+              color: bigger ? AppColors.primary : AppColors.textPrimary,
+            )),
+      ]),
+    );
+  }
+}
+
+

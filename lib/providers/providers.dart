@@ -1,5 +1,106 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
+import '../services/services.dart';
+
+// ============================================================
+// PRODUCT DETAILS PROVIDER
+// Armazena textos editáveis dos produtos para sincronizar
+// o Painel Admin com a tela de Detalhes do Produto.
+// ============================================================
+class ProductDetailsProvider extends ChangeNotifier {
+
+  // ── Taglines ─────────────────────────────────────────────
+  final Map<ProductCategory, String> _taglines = {
+    ProductCategory.rolo:           'Prática e versátil para todos os ambientes',
+    ProductCategory.romana:         'Elegância clássica com dobras uniformes',
+    ProductCategory.doubleVision:   'Controle total de luz com dupla camada',
+    ProductCategory.painel:         'Ideal para grandes vãos e portas de vidro',
+    ProductCategory.horizontal25mm: 'Durável e resistente à umidade',
+  };
+
+  // ── Descrições completas ──────────────────────────────────
+  final Map<ProductCategory, String> _descriptions = {
+    ProductCategory.rolo:
+        'A Persiana Rolô é a escolha mais popular para ambientes modernos e práticos. '
+        'Com acionamento por corrente ou motor elétrico, ela permite controle total da '
+        'luminosidade com um único movimento. O tecido é enrolado em um tubo de alumínio '
+        'com acabamento impecável, sem acúmulo de poeira. Ideal para escritórios, salas, quartos e cozinhas.',
+    ProductCategory.romana:
+        'A Persiana Romana é sinônimo de elegância e sofisticação. Com dobras harmoniosas '
+        'que se formam ao abrir, ela confere charme e personalidade ao ambiente. '
+        'O tecido estruturado cai em pregas perfeitas, valorizando janelas e porta-janelas. '
+        'Fabricamos com varetas de alumínio internas para manter o formato impecável.',
+    ProductCategory.doubleVision:
+        'A Double Vision combina duas camadas de tecido translúcida e opaca que deslizam '
+        'uma sobre a outra, permitindo regular a entrada de luz com precisão. '
+        'É a persiana mais versátil do mercado: filtra a luz do dia sem escurecer totalmente '
+        'ou bloqueia completamente quando necessário. Design clean e moderno.',
+    ProductCategory.painel:
+        'A Cortina Painel é a solução ideal para grandes vãos, porta-sacadas e janelas '
+        'panorâmicas. Os painéis deslizam lateralmente em trilho de alumínio de forma '
+        'suave e silenciosa. Permite combinar diferentes tecidos e cores no mesmo trilho, '
+        'criando efeito decorativo único.',
+    ProductCategory.horizontal25mm:
+        'A Persiana Horizontal 25mm é fabricada em lâminas de alumínio de alta resistência, '
+        'perfeita para ambientes com alta umidade como cozinhas e banheiros. '
+        'As lâminas giram 180° para controle total de privacidade e luminosidade. '
+        'Muito durável, fácil de limpar e com vida útil superior a 10 anos.',
+  };
+
+  // ── Vantagens (lista por linha) ───────────────────────────
+  final Map<ProductCategory, String> _advantages = {
+    ProductCategory.rolo:
+        'Acionamento por corrente ou motor\nDesign clean e minimalista\nFácil limpeza com pano úmido\nDisponível em blackout e screen solar\nTravamento automático em qualquer posição',
+    ProductCategory.romana:
+        'Dobras harmoniosas e elegantes\nVaretas internas de alumínio\nTecido estruturado de alta qualidade\nAcionamento por corrente\nPerfeita para salas e quartos',
+    ProductCategory.doubleVision:
+        'Dupla camada translúcida + opaca\nRegulagem precisa de luminosidade\nSem visibilidade externa à noite\nMecanismo de travamento suave\nLimpeza prática sem desmontar',
+    ProductCategory.painel:
+        'Ideal para grandes vãos\nTrilho de alumínio silencioso\nCombina diferentes tecidos\nSubstituição de painéis individual\nModerno e decorativo',
+    ProductCategory.horizontal25mm:
+        'Lâminas de alumínio 25mm\nResistente à umidade e vapor\nGiro 180° de privacidade total\nFácil limpeza com pano\nVida útil superior a 10 anos',
+  };
+
+  // ── WhatsApp editável ─────────────────────────────────────
+  String _whatsappNumber = '5561981276447';
+
+  // ── Getters ───────────────────────────────────────────────
+  String getTagline(ProductCategory cat) => _taglines[cat] ?? '';
+  String getDescription(ProductCategory cat) => _descriptions[cat] ?? '';
+  String getAdvantages(ProductCategory cat) => _advantages[cat] ?? '';
+  String get whatsappNumber => _whatsappNumber;
+
+  /// Retorna a lista de vantagens como List<String> (para uso no ProductDetailScreen)
+  List<String> getAdvantagesList(ProductCategory cat) {
+    final raw = _advantages[cat] ?? '';
+    return raw
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .map((l) => '✓ ${l.trim()}')
+        .toList();
+  }
+
+  // ── Setters ───────────────────────────────────────────────
+  void setTagline(ProductCategory cat, String value) {
+    _taglines[cat] = value;
+    notifyListeners();
+  }
+
+  void setDescription(ProductCategory cat, String value) {
+    _descriptions[cat] = value;
+    notifyListeners();
+  }
+
+  void setAdvantages(ProductCategory cat, String value) {
+    _advantages[cat] = value;
+    notifyListeners();
+  }
+
+  void setWhatsappNumber(String value) {
+    _whatsappNumber = value.replaceAll(RegExp(r'\D'), '');
+    notifyListeners();
+  }
+}
 
 class CartProvider extends ChangeNotifier {
   final List<CartItem> _items = [];
@@ -76,8 +177,12 @@ class SimulatorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleAccessory(AccessoryType accessory) {
-    final current = List<AccessoryType>.from(_config.accessories);
+  void setCommandSide(CommandSide side) {
+    _config = _config.copyWith(commandSide: side);
+    notifyListeners();
+  }
+
+  void toggleAccessory(AccessoryType accessory) {    final current = List<AccessoryType>.from(_config.accessories);
     if (current.contains(accessory)) {
       current.remove(accessory);
     } else {
@@ -119,6 +224,10 @@ class UserProvider extends ChangeNotifier {
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _isLoggedIn;
+
+  /// Retorna true se o usuário logado é o administrador
+  bool get isAdmin =>
+      _isLoggedIn && _user != null && AuthService.isAdmin(_user!.email);
 
   void login(UserModel user) {
     _user = user;

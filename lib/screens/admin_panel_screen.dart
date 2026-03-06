@@ -33,6 +33,51 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ── Verificação de acesso admin ────────────────────────────
+    final userProv = context.watch<UserProvider>();
+    if (!userProv.isAdmin) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Acesso Negado')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock, color: AppColors.error, size: 64),
+                ),
+                const SizedBox(height: 24),
+                const Text('Acesso Restrito',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                const Text(
+                  'O Painel Admin é exclusivo para o administrador do sistema.\n\nFaça login com sua conta de administrador para acessar.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Voltar'),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -700,6 +745,8 @@ class _EditableColor {
 
 // ============================================================
 // TAB 5 — DETALHES DO PRODUTO (descrição, tagline, vantagens)
+// Sincronizado via ProductDetailsProvider — edições aparecem
+// imediatamente na tela de Detalhes do Produto.
 // ============================================================
 class _ProductDetailsAdminTab extends StatefulWidget {
   const _ProductDetailsAdminTab();
@@ -710,65 +757,55 @@ class _ProductDetailsAdminTab extends StatefulWidget {
 class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
   ProductCategory _sel = ProductCategory.rolo;
 
-  final Map<ProductCategory, TextEditingController> _tagline = {
-    ProductCategory.rolo:           TextEditingController(text: 'Prática e versátil para todos os ambientes'),
-    ProductCategory.romana:         TextEditingController(text: 'Elegância clássica com dobras uniformes'),
-    ProductCategory.doubleVision:   TextEditingController(text: 'Controle total de luz com dupla camada'),
-    ProductCategory.painel:         TextEditingController(text: 'Ideal para grandes vãos e portas de vidro'),
-    ProductCategory.horizontal25mm: TextEditingController(text: 'Durável e resistente à umidade'),
-  };
+  // Controllers locais para edição — preenchidos no initState e ao trocar categoria
+  final TextEditingController _taglineCtrl = TextEditingController();
+  final TextEditingController _descCtrl    = TextEditingController();
+  final TextEditingController _advCtrl     = TextEditingController();
+  final TextEditingController _waCtrl      = TextEditingController();
 
-  final Map<ProductCategory, TextEditingController> _desc = {
-    ProductCategory.rolo: TextEditingController(text:
-        'A Persiana Rolô é a escolha mais popular para ambientes modernos e práticos. '
-        'Com acionamento por corrente ou motor elétrico, ela permite controle total da '
-        'luminosidade com um único movimento. O tecido é enrolado em um tubo de alumínio '
-        'com acabamento impecável, sem acúmulo de poeira. Ideal para escritórios, salas, quartos e cozinhas.'),
-    ProductCategory.romana: TextEditingController(text:
-        'A Persiana Romana é sinônimo de elegância e sofisticação. Com dobras harmoniosas '
-        'que se formam ao abrir, ela confere charme e personalidade ao ambiente. '
-        'O tecido estruturado cai em pregas perfeitas, valorizando janelas e porta-janelas. '
-        'Fabricamos com varetas de alumínio internas para manter o formato impecável.'),
-    ProductCategory.doubleVision: TextEditingController(text:
-        'A Double Vision combina duas camadas de tecido translúcida e opaca que deslizam '
-        'uma sobre a outra, permitindo regular a entrada de luz com precisão. '
-        'É a persiana mais versátil do mercado: filtra a luz do dia sem escurecer totalmente '
-        'ou bloqueia completamente quando necessário. Design clean e moderno.'),
-    ProductCategory.painel: TextEditingController(text:
-        'A Cortina Painel é a solução ideal para grandes vãos, porta-sacadas e janelas '
-        'panorâmicas. Os painéis deslizam lateralmente em trilho de alumínio de forma '
-        'suave e silenciosa. Permite combinar diferentes tecidos e cores no mesmo trilho, '
-        'criando efeito decorativo único.'),
-    ProductCategory.horizontal25mm: TextEditingController(text:
-        'A Persiana Horizontal 25mm é fabricada em lâminas de alumínio de alta resistência, '
-        'perfeita para ambientes com alta umidade como cozinhas e banheiros. '
-        'As lâminas giram 180° para controle total de privacidade e luminosidade. '
-        'Muito durável, fácil de limpar e com vida útil superior a 10 anos.'),
-  };
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFromProvider());
+  }
 
-  final Map<ProductCategory, TextEditingController> _adv = {
-    ProductCategory.rolo: TextEditingController(text:
-        'Acionamento por corrente ou motor\nDesign clean e minimalista\nFácil limpeza com pano úmido\nDisponível em blackout e screen solar\nTravamento automático em qualquer posição'),
-    ProductCategory.romana: TextEditingController(text:
-        'Dobras harmoniosas e elegantes\nVaretas internas de alumínio\nTecido estruturado de alta qualidade\nAcionamento por corrente\nPerfeita para salas e quartos'),
-    ProductCategory.doubleVision: TextEditingController(text:
-        'Dupla camada translúcida + opaca\nRegulagem precisa de luminosidade\nSem visibilidade externa à noite\nMecanismo de travamento suave\nLimpeza prática sem desmontar'),
-    ProductCategory.painel: TextEditingController(text:
-        'Ideal para grandes vãos\nTrilho de alumínio silencioso\nCombina diferentes tecidos\nSubstituição de painéis individual\nModerno e decorativo'),
-    ProductCategory.horizontal25mm: TextEditingController(text:
-        'Lâminas de alumínio 25mm\nResistente à umidade e vapor\nGiro 180° de privacidade total\nFácil limpeza com pano\nVida útil superior a 10 anos'),
-  };
+  void _loadFromProvider() {
+    final p = context.read<ProductDetailsProvider>();
+    _taglineCtrl.text = p.getTagline(_sel);
+    _descCtrl.text    = p.getDescription(_sel);
+    // Remove os "✓ " adicionados pelo getter de lista para edição limpa
+    _advCtrl.text     = p.getAdvantages(_sel);
+    _waCtrl.text      = p.whatsappNumber;
+    setState(() {});
+  }
 
   @override
   void dispose() {
-    for (final c in _tagline.values) c.dispose();
-    for (final c in _desc.values) c.dispose();
-    for (final c in _adv.values) c.dispose();
+    _taglineCtrl.dispose();
+    _descCtrl.dispose();
+    _advCtrl.dispose();
+    _waCtrl.dispose();
     super.dispose();
+  }
+
+  void _save() {
+    final p = context.read<ProductDetailsProvider>();
+    p.setTagline(_sel, _taglineCtrl.text.trim());
+    p.setDescription(_sel, _descCtrl.text.trim());
+    p.setAdvantages(_sel, _advCtrl.text.trim());
+    p.setWhatsappNumber(_waCtrl.text.trim());
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('✅ Detalhes de "${_sel.displayName}" salvos! Visíveis no app imediatamente.'),
+      backgroundColor: AppColors.success,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
+    // watch para atualizar preview em tempo real
+    final detProv = context.watch<ProductDetailsProvider>();
+
     return Column(children: [
       // Seletor de categoria
       Container(
@@ -780,7 +817,13 @@ class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
             children: ProductCategory.values.map((cat) {
               final sel = cat == _sel;
               return GestureDetector(
-                onTap: () => setState(() => _sel = cat),
+                onTap: () {
+                  setState(() => _sel = cat);
+                  // Preenche controllers com os dados desta categoria
+                  _taglineCtrl.text = detProv.getTagline(cat);
+                  _descCtrl.text    = detProv.getDescription(cat);
+                  _advCtrl.text     = detProv.getAdvantages(cat);
+                },
                 child: Container(
                   margin: const EdgeInsets.only(right: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -805,6 +848,8 @@ class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            // Cabeçalho
             Row(children: [
               const Icon(Icons.description_outlined, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
@@ -816,26 +861,43 @@ class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             const SizedBox(height: 16),
 
+            // ── WhatsApp ──────────────────────────────────
+            _TextEditCard(
+              title: '📱 Número WhatsApp',
+              subtitle: 'Número completo com DDI: 5561912345678',
+              controller: _waCtrl,
+              maxLines: 1,
+              icon: Icons.phone_outlined,
+            ),
+
+            // ── Tagline ───────────────────────────────────
             _TextEditCard(
               title: '🏷️ Tagline / Subtítulo',
               subtitle: 'Frase curta abaixo do nome do produto',
-              controller: _tagline[_sel]!,
-              maxLines: 2, icon: Icons.label_outline,
+              controller: _taglineCtrl,
+              maxLines: 2,
+              icon: Icons.label_outline,
             ),
+
+            // ── Descrição ─────────────────────────────────
             _TextEditCard(
               title: '📝 Descrição Completa',
               subtitle: 'Texto de apresentação na tela de detalhes',
-              controller: _desc[_sel]!,
-              maxLines: 8, icon: Icons.text_snippet_outlined,
-            ),
-            _TextEditCard(
-              title: '✅ Vantagens (uma por linha)',
-              subtitle: 'Lista de diferenciais do produto',
-              controller: _adv[_sel]!,
-              maxLines: 8, icon: Icons.check_circle_outline,
+              controller: _descCtrl,
+              maxLines: 8,
+              icon: Icons.text_snippet_outlined,
             ),
 
-            // Preview
+            // ── Vantagens ─────────────────────────────────
+            _TextEditCard(
+              title: '✅ Vantagens (uma por linha)',
+              subtitle: 'Lista de diferenciais — será exibida com "✓" automático',
+              controller: _advCtrl,
+              maxLines: 8,
+              icon: Icons.check_circle_outline,
+            ),
+
+            // ── Preview ───────────────────────────────────
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -847,15 +909,35 @@ class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
                 const Row(children: [
                   Icon(Icons.preview_outlined, size: 16, color: AppColors.primary),
                   SizedBox(width: 6),
-                  Text('Pré-visualização', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                  Text('Pré-visualização (como aparece no app)',
+                      style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
                 ]),
                 const SizedBox(height: 10),
-                Text(_sel.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(_sel.displayName,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 2),
-                Text(_tagline[_sel]!.text, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: 6),
-                Text(_desc[_sel]!.text, maxLines: 3, overflow: TextOverflow.ellipsis,
+                Text(_taglineCtrl.text.isEmpty ? detProv.getTagline(_sel) : _taglineCtrl.text,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 8),
+                Text(_descCtrl.text.isEmpty ? detProv.getDescription(_sel) : _descCtrl.text,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+                const SizedBox(height: 8),
+                // Mini lista de vantagens
+                ...(_advCtrl.text.isEmpty
+                    ? detProv.getAdvantagesList(_sel)
+                    : _advCtrl.text
+                        .split('\n')
+                        .where((l) => l.trim().isNotEmpty)
+                        .take(3)
+                        .map((l) => '✓ ${l.trim()}')
+                        .toList()
+                ).map((v) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(v,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                )),
               ]),
             ),
 
@@ -863,15 +945,9 @@ class _ProductDetailsAdminTabState extends State<_ProductDetailsAdminTab> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('✅ Detalhes de "${_sel.displayName}" salvos!'),
-                    backgroundColor: AppColors.success,
-                  ));
-                },
+                onPressed: _save,
                 icon: const Icon(Icons.save_outlined),
-                label: Text('Salvar — ${_sel.displayName}'),
+                label: Text('Salvar & Publicar — ${_sel.displayName}'),
                 style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               ),
             ),

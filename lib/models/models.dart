@@ -3,6 +3,32 @@
 // ============================================================
 import 'package:flutter/material.dart';
 
+// ── Lado do comando / motor ───────────────────────────────────
+enum CommandSide { left, right }
+
+extension CommandSideExtension on CommandSide {
+  String get displayName {
+    switch (this) {
+      case CommandSide.left: return 'Esquerdo';
+      case CommandSide.right: return 'Direito';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case CommandSide.left: return 'Acionamento pelo lado esquerdo da janela';
+      case CommandSide.right: return 'Acionamento pelo lado direito da janela';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case CommandSide.left: return Icons.west;
+      case CommandSide.right: return Icons.east;
+    }
+  }
+}
+
 enum ProductCategory {
   rolo,
   romana,
@@ -351,25 +377,39 @@ extension AccessoryTypeExtension on AccessoryType {
       case AccessoryType.motorWifi: return 'Motor WiFi + Controle';
       case AccessoryType.bando: return 'Bandô';
       case AccessoryType.barraEstabilizadora: return 'Barra Estabilizadora';
-      case AccessoryType.guiaLateral: return 'Guia Lateral';
+      case AccessoryType.guiaLateral: return 'Guia Lateral (par)';
     }
   }
 
-  double get price {
+  /// Preço unitário base (fixo ou por metro)
+  double get pricePerMeter {
     switch (this) {
-      case AccessoryType.motorWifi: return 1297.00;
-      case AccessoryType.bando: return 99.90;
-      case AccessoryType.barraEstabilizadora: return 50.00;
-      case AccessoryType.guiaLateral: return 140.00;
+      case AccessoryType.motorWifi: return 1297.00; // preço fixo
+      case AccessoryType.bando: return 99.90;              // R$/metro de largura
+      case AccessoryType.barraEstabilizadora: return 50.00; // R$/metro de largura
+      case AccessoryType.guiaLateral: return 140.00;        // R$/metro de altura × 2 guias
     }
   }
+
+  /// true = cobrado por metro linear (depende das medidas)
+  bool get isPerMeter {
+    switch (this) {
+      case AccessoryType.motorWifi: return false;
+      case AccessoryType.bando: return true;            // cobrado pela largura
+      case AccessoryType.barraEstabilizadora: return true; // cobrado pela largura
+      case AccessoryType.guiaLateral: return true;      // cobrado pela altura (×2 guias)
+    }
+  }
+
+  /// Preço de referência para exibição (sem medidas definidas = por metro)
+  double get price => pricePerMeter;
 
   String get description {
     switch (this) {
-      case AccessoryType.motorWifi: return 'Automação via app smartphone';
-      case AccessoryType.bando: return 'Acabamento superior da persiana';
-      case AccessoryType.barraEstabilizadora: return 'Mantém a persiana alinhada';
-      case AccessoryType.guiaLateral: return 'Guia nas laterais';
+      case AccessoryType.motorWifi: return 'Automação via app smartphone — preço fixo';
+      case AccessoryType.bando: return 'Acabamento superior — cobrado pela largura (R\$/m)';
+      case AccessoryType.barraEstabilizadora: return 'Mantém a persiana alinhada — cobrado pela largura (R\$/m)';
+      case AccessoryType.guiaLateral: return 'Par de guias laterais — cobrado pela altura (R\$/m × 2 guias)';
     }
   }
 
@@ -379,6 +419,16 @@ extension AccessoryTypeExtension on AccessoryType {
       case AccessoryType.bando: return '🪟';
       case AccessoryType.barraEstabilizadora: return '📏';
       case AccessoryType.guiaLateral: return '↔️';
+    }
+  }
+
+  /// Calcula o preço real do acessório dado largura e altura em metros
+  double calculatePrice(double width, double height) {
+    switch (this) {
+      case AccessoryType.motorWifi: return pricePerMeter;
+      case AccessoryType.bando: return pricePerMeter * width;              // largura × R$/m
+      case AccessoryType.barraEstabilizadora: return pricePerMeter * width; // largura × R$/m
+      case AccessoryType.guiaLateral: return pricePerMeter * height * 2;   // 2 guias × altura
     }
   }
 }
@@ -471,6 +521,7 @@ class SimulatorConfig {
   final double? height;
   final List<AccessoryType> accessories;
   final String? fabricColor;
+  final CommandSide commandSide;
 
   const SimulatorConfig({
     required this.category,
@@ -480,6 +531,7 @@ class SimulatorConfig {
     this.height,
     this.accessories = const [],
     this.fabricColor,
+    this.commandSide = CommandSide.right,
   });
 
   static const double minArea = 1.50;
@@ -503,8 +555,18 @@ class SimulatorConfig {
     return billedArea * priceM2;
   }
 
+  /// Calcula o preço total dos acessórios considerando metro linear (bandô/guias)
   double get accessoriesPrice {
-    return accessories.fold(0.0, (sum, acc) => sum + acc.price);
+    final w = width ?? 1.0;
+    final h = height ?? 1.0;
+    return accessories.fold(0.0, (sum, acc) => sum + acc.calculatePrice(w, h));
+  }
+
+  /// Retorna o preço calculado de um acessório específico (para exibição)
+  double accessoryPrice(AccessoryType acc) {
+    final w = width ?? 1.0;
+    final h = height ?? 1.0;
+    return acc.calculatePrice(w, h);
   }
 
   double get totalPrice => basePrice + accessoriesPrice;
@@ -528,6 +590,7 @@ class SimulatorConfig {
     double? height,
     List<AccessoryType>? accessories,
     String? fabricColor,
+    CommandSide? commandSide,
   }) {
     return SimulatorConfig(
       category: category ?? this.category,
@@ -537,6 +600,7 @@ class SimulatorConfig {
       height: height ?? this.height,
       accessories: accessories ?? this.accessories,
       fabricColor: fabricColor ?? this.fabricColor,
+      commandSide: commandSide ?? this.commandSide,
     );
   }
 }

@@ -5,6 +5,8 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../widgets/common_widgets.dart';
 import 'checkout_screen.dart';
+import 'account_screen.dart';
+import 'accessory_order_screen.dart';
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
@@ -24,13 +26,7 @@ class CartScreen extends StatelessWidget {
         ],
       ),
       body: cart.itemCount == 0
-          ? EmptyState(
-              icon: Icons.shopping_cart_outlined,
-              title: 'Carrinho vazio',
-              subtitle: 'Adicione persianas usando nosso simulador',
-              actionLabel: 'Ir para Simulador',
-              onAction: () => Navigator.pop(context),
-            )
+          ? _EmptyCartView()
           : Column(
               children: [
                 Expanded(
@@ -132,6 +128,7 @@ class _CartItemCard extends StatelessWidget {
                 _InfoChipColor(config.fabricColor!, config.fabric),
               if (config.installation != null)
                 _InfoChip(config.installation!.displayName),
+              _InfoChip('Comando: ${config.commandSide.displayName}'),
               ...config.accessories.map((a) => _InfoChip(a.displayName)),
             ],
           ),
@@ -270,11 +267,118 @@ class _CartSummary extends StatelessWidget {
             child: GradientButton(
               label: 'Finalizar Compra',
               icon: Icons.lock_outline,
-              onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const CheckoutScreen())),
+              onPressed: () {
+                final userProv = context.read<UserProvider>();
+                if (!userProv.isLoggedIn || userProv.user?.id == 'guest') {
+                  // Exige login antes do checkout
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Row(children: [
+                        Icon(Icons.lock_outline, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Login necessário'),
+                      ]),
+                      content: const Text(
+                        'Para finalizar sua compra você precisa estar logado.\n\nFaça login ou crie sua conta gratuitamente.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancelar'),
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.login),
+                          label: const Text('Fazer Login'),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AccountScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                  );
+                }
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Estado de carrinho vazio com opção de pedir acessório ──────
+class _EmptyCartView extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: AppColors.grey100,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.shopping_cart_outlined,
+                size: 56,
+                color: AppColors.grey400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Carrinho vazio',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Adicione persianas usando o simulador ou\npeça acessórios avulsos',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: GradientButton(
+                label: 'Ir para Simulador',
+                icon: Icons.straighten_outlined,
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.handyman_outlined),
+                label: const Text('Pedir Acessórios Avulsos'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AccessoryOrderScreen()),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
